@@ -1,0 +1,21 @@
+name: Feature request
+description: An idea for Doodlebold
+labels: [enhancement]
+body:
+  - type: textarea
+    id: idea
+    attributes:
+      label: What would you like?
+      placeholder: A symmetry ruler for the canvas.
+    validations:
+      required: true
+  - type: textarea
+    id: why
+    attributes:
+      label: How would it help you?
+      placeholder: I draw faces and characters and mirror them by hand.
+  - type: textarea
+    id: mock
+    attributes:
+      label: Mock-up or screenshot
+      description: Optional. A sketch of how it could look, or how another program does it.

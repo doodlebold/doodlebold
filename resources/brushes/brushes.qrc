@@ -1,0 +1,28 @@
+<!DOCTYPE RCC>
+<RCC version="1.0">
+  <!-- Written by tools/generate_brush_pictures.py -->
+  <qresource prefix="/brushes">
+    <file>forms/shapes/Soft Edge.png</file>
+    <file>forms/shapes/Chalk.png</file>
+    <file>forms/shapes/Charcoal.png</file>
+    <file>forms/shapes/Splatter.png</file>
+    <file>forms/shapes/Flat Nib.png</file>
+    <file>forms/shapes/Flat Nib.ini</file>
+    <file>forms/blots/Blots.png</file>
+    <file>forms/blots/Fine Blots.png</file>
+    <file>forms/blots/Mottled Blots.png</file>
+    <file>forms/bristles/Round Bristle.png</file>
+    <file>forms/bristles/Flat Bristle.png</file>
+    <file>forms/bristles/Sparse Bristle.png</file>
+    <file>textures/Paper Grain.png</file>
+    <file>textures/Canvas.png</file>
+    <file>textures/Rough.png</file>
+    <file>textures/Linen.png</file>
+    <file>textures/Sponge.png</file>
+    <file>papers/Paper.png</file>
+    <file>papers/Canvas.png</file>
+    <file>papers/Watercolor Paper.png</file>
+    <file>papers/Fine Grain.png</file>
+    <file>papers/Fibres.png</file>
+  </qresource>
+</RCC>

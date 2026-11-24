@@ -1,0 +1,7 @@
+# The painting code takes the checks of the repository's .clang-tidy, less two that turn loops into algorithms: in these hot
+# loops GCC 16 compiles std::ranges::copy, fill and any_of, and std::any_of over a lambda, to more instructions than the plain
+# loops (the 4000 px Pencil and Eraser took 0.3 to 1.5 % more per stroke, measured with tools/compare_brush_speed.py).
+InheritParentConfig: true
+Checks: >
+  -modernize-use-ranges,
+  -readability-use-anyofallof

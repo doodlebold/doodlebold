@@ -1,0 +1,52 @@
+# The one place the workflows get their build dependencies. Every job then builds and tests through CMakePresets.json, the same
+# commands a developer runs (tools/README.md).
+name: Set up the Doodlebold build
+description: Installs what one of the presets' platforms needs to build and test Doodlebold.
+inputs:
+  platform:
+    description: >-
+      fedora (Linux GCC and Clang, in a fedora:44 container), mingw (the Windows cross-build, in a fedora:44 container),
+      windows (Visual Studio 2022) or appimage (Ubuntu 22.04)
+    required: true
+runs:
+  using: composite
+  steps:
+    - name: Fedora packages
+      if: inputs.platform == 'fedora'
+      shell: bash
+      run: ci/install-fedora-build-packages.sh
+
+    - name: Fedora MinGW packages
+      if: inputs.platform == 'mingw'
+      shell: bash
+      run: ci/install-fedora-mingw-packages.sh
+
+    - name: Qt (Windows)
+      if: inputs.platform == 'windows'
+      uses: jurplel/install-qt-action@b344308e4483fc892e0d27b3cd1b173ebdd95f06  # v4.5.0
+      with:
+        version: '6.8.3'
+        cache: true
+
+    - name: GoogleTest and libjpeg-turbo (Windows)
+      if: inputs.platform == 'windows'
+      shell: pwsh
+      run: ci/install-windows-vcpkg-packages.ps1
+
+    - name: Visual Studio environment (Windows)
+      # Puts cl and Ninja on the PATH, for the presets' Ninja generator.
+      if: inputs.platform == 'windows'
+      uses: ilammy/msvc-dev-cmd@0b201ec74fa43914dc39ae48a89fd1d8cb592756  # v1.13.0
+
+    - name: Qt (AppImage)
+      # Built on the oldest supported base, so the AppImage runs on most distributions (glibc 2.35 and newer).
+      if: inputs.platform == 'appimage'
+      uses: jurplel/install-qt-action@b344308e4483fc892e0d27b3cd1b173ebdd95f06  # v4.5.0
+      with:
+        version: '6.8.3'
+        cache: true
+
+    - name: Ubuntu packages (AppImage)
+      if: inputs.platform == 'appimage'
+      shell: bash
+      run: ci/install-ubuntu-appimage-packages.sh

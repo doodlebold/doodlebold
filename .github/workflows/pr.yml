@@ -1,0 +1,64 @@
+# TEMPLATE: complete and valid, kept to the essentials. It has never run, as the repository has no remote yet. Once it has one:
+#   1. Push, open a pull request, and check that the three jobs start (Settings > Actions must allow workflows).
+#   2. Make the three jobs required checks of the default branch (Settings > Branches).
+#   3. Check the Windows job builds at all: nothing here has been compiled with MSVC yet, and the setup action sets VCPKG_ROOT
+#      before ilammy/msvc-dev-cmd runs, which might change it.
+#   4. When a Windows run has given its first numbers, choose how its brush pixels are checked (tools/README.md, "Brush pixels
+#      on other platforms") and make the brush-pixels step below a gate instead of information.
+# Every job builds and tests through CMakePresets.json, the commands a developer runs; .github/actions/setup installs what each needs.
+name: Build and test a pull request
+
+on:
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pr-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  linux-gcc:
+    # The reference platform: x86-64 with glibc, whose checksums the brush pixels hold to the bit.
+    runs-on: ubuntu-24.04
+    container: registry.fedoraproject.org/fedora:44
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+
+      - uses: ./.github/actions/setup
+        with:
+          platform: fedora
+
+      - name: Build, then the checks before a commit
+        run: cmake --workflow --preset test-before-commit
+
+  windows-msvc:
+    runs-on: windows-2022
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+
+      - uses: ./.github/actions/setup
+        with:
+          platform: windows
+
+      - name: Build, then the unit and UI tests
+        run: cmake --workflow --preset windows-msvc
+
+      - name: Brush pixels (information only until Windows has its own checksums)
+        continue-on-error: true
+        run: ctest --preset windows-msvc-brush-pixels
+
+  windows-mingw:
+    # The Windows build made on Linux, as a release can be without a Windows machine: it must keep building.
+    runs-on: ubuntu-24.04
+    container: registry.fedoraproject.org/fedora:44
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+
+      - uses: ./.github/actions/setup
+        with:
+          platform: mingw
+
+      - name: Cross-build and pack
+        run: cmake --workflow --preset windows-mingw-zip

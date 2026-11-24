@@ -1,0 +1,11 @@
+[Desktop Entry]
+Type=Application
+Name=Doodlebold
+GenericName=Painting Application
+Comment=Digital painting
+Exec=doodlebold %F
+Icon=doodlebold
+Terminal=false
+Categories=Graphics;2DGraphics;RasterGraphics;
+MimeType=application/x-doodlebold;image/vnd.adobe.photoshop;image/png;image/jpeg;image/bmp;image/x-tga;
+StartupWMClass=doodlebold

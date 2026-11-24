@@ -1,0 +1,164 @@
+Doodlebold third-party notices
+==============================
+
+Doodlebold itself is released under the MIT licence (see LICENSE). It uses the
+software listed below. Each entry says what it is, how it is licensed and where
+its source code is. The full licence texts are in the third_party/ folder of the
+source, and in share/licenses/doodlebold of an installed package.
+
+Entries marked "AppImage only" are inside the Linux AppImage and are not in the
+Windows zip or the Fedora RPM (the RPM uses the libraries of the system it is
+installed on).
+
+
+Qt 6
+----
+
+What:     The application framework. Doodlebold uses the Qt modules Core, Gui,
+          Widgets, OpenGL, OpenGLWidgets, Svg, Network and DBus, Multimedia where
+          the build has it (an animation's sound clips), and
+          the Qt Wayland platform plugins (the Windows and AppImage packages
+          also contain the Qt plugins those modules need).
+Version:  6.8.3 in the Windows zip and the AppImage. The Fedora RPM uses
+          Fedora's own Qt.
+Licence:  GNU Lesser General Public License version 3 (LGPLv3), with parts under
+          other licences (see "Code bundled inside Qt" below).
+          Texts: third_party/LGPL-3.0.txt, third_party/GPL-3.0.txt
+Source:   https://download.qt.io/archive/qt/6.8/6.8.3/submodules/
+          Project: https://www.qt.io/
+
+The Qt libraries are linked dynamically (as .dll files on Windows and .so files
+on Linux). You can replace them with your own build of the same Qt version:
+swap the files in the Windows zip's bin/ folder, or unpack the AppImage with
+--appimage-extract, replace the libraries and plugins in it, and run it.
+
+Timelapse export uses an FFmpeg program that you install yourself; Doodlebold
+runs it as a separate program and does not link it.
+
+
+Code bundled inside Qt
+----------------------
+
+Qt contains third-party code under its own licences. The list, with each
+licence, is at:
+
+    https://doc.qt.io/qt-6.8/licenses-used-in-qt.html
+
+Credits that those licences require:
+
+  FreeType. Qt 6.8.3 bundles FreeType 2.13.3. The FreeType Project licence
+  asks for this sentence:
+
+      Portions of this software are copyright © 2024 The FreeType Project
+      (www.freetype.org). All rights reserved.
+
+  Other Qt-bundled code that ends up in the packages includes HarfBuzz, libpng,
+  zlib, PCRE2 and double-conversion. See the page above for their licences.
+
+
+libjpeg-turbo
+-------------
+
+What:     JPEG reading and writing (Windows zip and AppImage; the RPM uses
+          Fedora's libjpeg-turbo).
+Licence:  Modified (3-clause) BSD licence, IJG licence and zlib licence.
+Credit:   This software is based in part on the work of the
+          Independent JPEG Group.
+Source:   https://github.com/libjpeg-turbo/libjpeg-turbo
+Licence text:
+          https://github.com/libjpeg-turbo/libjpeg-turbo/blob/main/LICENSE.md
+
+
+miniz
+-----
+
+What:     A .zip library, copied into the source as third_party/miniz/ and
+          built into the program, where it reads brush packs that come as
+          .zip files.
+Licence:  MIT. Copyright 2013-2014 RAD Game Tools and Valve Software;
+          copyright 2010-2014 Rich Geldreich and Tenacious Software LLC.
+          Text: third_party/miniz/LICENSE
+Source:   https://github.com/richgel999/miniz
+
+
+Inter
+-----
+
+What:     The font used by the interface (resources/fonts/Inter-*.ttf).
+Licence:  SIL Open Font Licence 1.1. Copyright (c) 2016 The Inter Project
+          Authors.
+          Text: third_party/Inter-OFL.txt
+Source:   https://github.com/rsms/inter
+
+
+Wayland protocol code
+---------------------
+
+What:     Doodlebold's Linux pen cursor and background blur use client code
+          that wayland-scanner generates from the Wayland protocol XML files
+          (tablet-v2, cursor-shape-v1, ext-background-effect-v1). The generated
+          code is compiled into the program.
+Licence:  MIT-style licences of the wayland-protocols project and of the
+          individual protocol files.
+Source:   https://gitlab.freedesktop.org/wayland/wayland-protocols
+          (the AppImage is built with version 1.49)
+
+
+ICU
+---
+
+What:     International Components for Unicode. The Qt libraries for Linux
+          depend on it, and it is in the AppImage.
+Licence:  Unicode licence (ICU licence).
+Source:   https://github.com/unicode-org/icu
+Licence text:
+          https://github.com/unicode-org/icu/blob/main/LICENSE
+
+
+AppImage runtime and libfuse (AppImage only)
+--------------------------------------------
+
+What:     The small program at the start of an AppImage file that mounts it and
+          starts Doodlebold. It includes libfuse.
+Licence:  The AppImage runtime is under the MIT licence. libfuse is under the
+          GNU Lesser General Public License version 2.1 (LGPLv2.1).
+          Text: third_party/LGPL-2.1.txt
+Source:   https://github.com/AppImage/type2-runtime
+          https://github.com/libfuse/libfuse
+
+
+Linux libraries bundled in the AppImage (AppImage only)
+-------------------------------------------------------
+
+The AppImage contains copies of the shared libraries that Doodlebold and Qt
+need and that Ubuntu 22.04 (the system the AppImage is built on) provides. The
+exact list depends on the build; unpack the AppImage with --appimage-extract and
+look in usr/lib to see it. It includes libraries such as:
+
+    glib, pulseaudio (libpulse), libsndfile, systemd (libsystemd), libgcrypt,
+    libgpg-error, and the libraries they depend on.
+
+Most of these are licensed under the GNU Lesser General Public License version
+2.1 or later (LGPLv2.1+); some are under other licences, for example MIT or
+BSD. Each one keeps its own licence. LGPL text: third_party/LGPL-2.1.txt
+
+You can replace any of these libraries with a build of your own, because they
+are separate files inside the AppImage.
+
+Source: the source packages of Ubuntu 22.04 ("jammy"), at
+          https://launchpad.net/ubuntu/jammy
+        Search there for the package name (for example "glib2.0",
+        "pulseaudio", "libsndfile", "systemd", "libgcrypt20") to find its
+        source and its copyright file.
+
+
+Microsoft Visual C++ runtime (Windows only)
+-------------------------------------------
+
+What:     The Visual C++ runtime DLLs (vcruntime, msvcp and similar) next to
+          doodlebold.exe, so that Windows without the Visual C++
+          Redistributable can start the program.
+Licence:  Microsoft's redistributable terms for the Visual Studio runtime.
+          These files are redistributed under those terms and are not open
+          source.
+More:     https://learn.microsoft.com/en-us/cpp/windows/redistributing-visual-cpp-files

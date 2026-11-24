@@ -1,0 +1,40 @@
+# What tools/lint_ui_theme_tokens.py lets through, each with its reason. A line is a whole file, or `file :: regex` for the lines of
+# that file the regex matches. Keep it short: a value that the chrome shows belongs in Theme.
+
+# The design system's own source: the tokens are defined here.
+src/ui/Theme.h  # the tokens
+src/ui/Theme.cpp  # the built-in and COSMIC values, the palette
+
+# The canvas is out of the design system: its painting, overlays and cursors are not themed, and nothing may add work there.
+src/ui/CanvasView.cpp  # the canvas's own painting (GL, overlays in its paintEvent)
+src/ui/CanvasView.h
+src/ui/FloatingLayerRenderer.cpp  # draws on the canvas
+src/ui/FloatingLayerRenderer.h
+src/ui/tools/CanvasCursor.cpp  # brush and tool cursors
+src/ui/tools/SelectionOverlay.cpp  # marching ants on the canvas
+src/ui/tools/SelectionOverlay.h
+src/ui/tools/QuickShapeTool.cpp  # the snapped shape's handles, drawn on the canvas
+src/ui/tools/TransformTools.cpp  # transform handles, drawn on the canvas
+src/ui/tools/TextTool.cpp  # the text frame, drawn on the canvas
+src/ui/tools/SelectionTools.cpp  # selection previews on the canvas
+src/ui/tools/SelectionPenTool.cpp
+src/ui/panels/BrushPreviewStrip.cpp  # the stroke preview: brush strokes painted by the engine, on fixed grounds
+src/ui/panels/BrushPreviewStrip.h
+src/platform/PenCursor.cpp  # the brush cursor
+src/platform/BackgroundBlur.cpp  # the desktop's blur API: its own constants, not drawing
+
+# The user's own colours: the colour itself is the user's, only its frame is the theme's.
+src/ui/panels/ColorPanel.cpp :: m_(swatch|secondary)->setStyleSheet  # the brush colour's swatches show the user's colour
+src/ui/NewCanvasDialog.cpp :: m_swatch->setStyleSheet  # the canvas background colour's swatch
+src/ui/NewCanvasDialog.cpp :: QColor\(picked->  # a colour the user picked
+src/ui/color/ColorWheelView.cpp :: QColor\(0, 0, 0, 120\)|Qt::white  # the knobs over the user's colours: black and white in any theme, as the ants are
+src/ui/MainWindow.cpp :: Document\(.*Qt::white  # a new canvas's paper is the user's, white
+src/ui/animation/AnimationController.cpp :: Document\(.*Qt::white  # a new frame's paper, white
+src/ui/color/ScratchPadView.cpp :: fillRect\(e->rect\(\), Qt::white\)  # the scratch pad's paper: the user paints on it
+src/ui/panels/BrushResourceList.cpp :: fillRect\(.*Qt::white\)  # a tip picture's white ground: the user's picture shows as it paints
+src/ui/animation/TrackLabels.h  # the track label colours: the user's own sorting, kept in every theme
+
+# Overlays that sit on the user's drawings and must read on any picture, so they are not themed.
+src/ui/animation/FrameStrip.cpp :: kChipGround|kChipText|kHoldLineAlpha|QColor\(0, 0, 0,  # dark chips and lines over frame pictures
+src/ui/color/ColorWheelView.cpp :: line\[x\] = qRgba  # premultiplying the wheel's own colours, not a colour value
+src/ui/color/SwatchesView.cpp :: kEmpty(Light|Dark) = 0x  # an empty swatch's checkerboard, under the user's colours

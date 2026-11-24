@@ -1,0 +1,161 @@
+# TEMPLATE: complete and valid, kept to the essentials. It has never run, as the repository has no remote yet. Once it has one:
+#   1. Push master and check that every job starts. Run it once by hand too (Actions > Full checks after a merge > Run workflow):
+#      that first run gives the Windows brush-pixel numbers the "platform checksums" job below needs.
+#   2. With those numbers, decide whether Windows keeps checksums of its own (tools/README.md, "Brush pixels on other platforms"),
+#      write them with the platform-checksums jobs, and drop continue-on-error from the Windows brush-pixels step.
+#   3. Check that the Windows jobs still see VCPKG_ROOT after the Visual Studio environment step (.github/actions/setup sets it
+#      before ilammy/msvc-dev-cmd runs, which might change it). Nothing here has been built with MSVC yet.
+# Every job builds and tests through CMakePresets.json, the commands a developer runs; .github/actions/setup installs what each needs.
+name: Full checks after a merge to master
+
+on:
+  push:
+    branches: [master]
+  workflow_dispatch:
+    inputs:
+      only:
+        description: >-
+          Platform checksums - the brush-pixel cases to compare and write, part of a case name such as grid/pencil- (one group
+          at a time: Linux's dumps of all 479 cases come to more than 20 GB, too much for an artifact)
+        type: string
+        required: true
+
+permissions:
+  contents: read
+
+jobs:
+  linux-gcc:
+    runs-on: ubuntu-24.04
+    container: registry.fedoraproject.org/fedora:44
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+
+      - uses: ./.github/actions/setup
+        with:
+          platform: fedora
+
+      - name: Build, then every test and all 479 brush-pixel cases
+        run: cmake --workflow --preset test-before-merge
+
+      - name: All 479 brush-pixel cases on 2 and on 4 threads
+        run: ctest --preset test-thread-counts
+
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9  # v7.0.2
+        if: failure()
+        with:
+          name: brush-pixels-differences-linux
+          path: build/tests/brush-pixels-differences
+          if-no-files-found: ignore
+
+  linux-clang:
+    runs-on: ubuntu-24.04
+    container: registry.fedoraproject.org/fedora:44
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+
+      - uses: ./.github/actions/setup
+        with:
+          platform: fedora
+
+      - name: Build with Clang, then the checks before a commit
+        run: cmake --workflow --preset linux-clang
+
+  linux-address-sanitizer:
+    runs-on: ubuntu-24.04
+    container: registry.fedoraproject.org/fedora:44
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+
+      - uses: ./.github/actions/setup
+        with:
+          platform: fedora
+
+      - name: Unit and UI tests under ASan and UBSan
+        run: cmake --workflow --preset linux-address-sanitizer
+
+  linux-ui-gl:
+    # The 3 UI tests that need OpenGL skip on the offscreen platform: here they run, alone, on X11 with Mesa's software renderer.
+    runs-on: ubuntu-24.04
+    container: registry.fedoraproject.org/fedora:44
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+
+      - uses: ./.github/actions/setup
+        with:
+          platform: fedora
+
+      - name: Build, then the UI tests on a virtual X display
+        run: ci/build-and-test-opengl-ui-on-virtual-display.sh
+
+  windows-msvc:
+    runs-on: windows-2022
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+
+      - uses: ./.github/actions/setup
+        with:
+          platform: windows
+
+      - name: Build, then the unit and UI tests
+        run: cmake --workflow --preset windows-msvc
+
+      - name: All 479 brush-pixel cases (information only until Windows has its own checksums)
+        continue-on-error: true
+        run: ctest --preset windows-msvc-brush-pixels
+
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9  # v7.0.2
+        if: always()
+        with:
+          name: brush-pixels-differences-windows
+          path: build-windows-msvc/tests/brush-pixels-differences
+          if-no-files-found: ignore
+
+  # By hand only, one group of cases at a time: Windows' renders compared pixel by pixel with Linux's at this commit, against the
+  # platform tolerance, and those cases' checksums written into Windows' own file when they pass. Commit the uploaded
+  # checksums-windows-msvc.txt once every group is in it, and set DOODLEBOLD_BRUSH_PIXELS_CHECKSUMS=checksums-windows-msvc.txt in
+  # the windows-msvc preset (CMakePresets.json).
+  linux-brush-pixel-dumps:
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-24.04
+    container: registry.fedoraproject.org/fedora:44
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+
+      - uses: ./.github/actions/setup
+        with:
+          platform: fedora
+
+      - name: Dump Linux's renders
+        env:
+          ONLY: ${{ inputs.only }}
+        run: ci/dump-linux-brush-pixels.sh "$ONLY" linux-dumps
+
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9  # v7.0.2
+        with:
+          name: linux-brush-pixel-dumps
+          path: linux-dumps
+
+  windows-platform-checksums:
+    needs: linux-brush-pixel-dumps
+    runs-on: windows-2022
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+
+      - uses: ./.github/actions/setup
+        with:
+          platform: windows
+
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333  # v8.0.2
+        with:
+          name: linux-brush-pixel-dumps
+          path: linux-dumps
+
+      - name: Compare with Linux within the tolerance, then write Windows' checksums
+        env:
+          ONLY: ${{ inputs.only }}
+        run: ci/write-windows-brush-pixel-checksums.ps1 -Only $env:ONLY -LinuxDumps linux-dumps
+
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9  # v7.0.2
+        with:
+          name: checksums-windows-msvc
+          path: tests/fixtures/brush-pixels/checksums-windows-msvc.txt

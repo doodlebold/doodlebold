@@ -1,0 +1,236 @@
+/* Doodlebold's style sheet. Theme::apply fills in the placeholders: @Name is the colour of Theme::Token::Name, @Name~A the
+   same colour with alpha A (0-255), @space1, @radiusMd, @compactInnerMd and the other size tokens their px values, and
+   @captionSize / @titleSize / @overlineSpacing the type roles' (Theme.h lists them all). The values come from Doodlebold's
+   built-in theme, or from the desktop's COSMIC theme when asked for. No number or colour is written here directly, except a
+   component's own geometry, marked "component metric" with what it is. */
+
+QMainWindow, QDialog { background: @Window; }
+QWidget { color: @Text; }
+QWidget:disabled { color: @TextDisabled; }
+QLabel { background: transparent; }
+
+/* The items are one compact control tall, as the quick bar beside them is, so the bar keeps one height with or without it and
+   both sit in its middle (the padding above and below the text is worked out from the font: @menuItemPadTop / Bottom). */
+QMenuBar { background: @Window; border-bottom: @border solid @Border; padding: @space1 @space2; }
+QMenuBar::item { background: transparent; color: @TextMuted; padding: @menuItemPadTop @space2 @menuItemPadBottom @space2;
+    border-radius: @radiusMd; }
+QMenuBar::item:selected { background: @Hover; color: @Text; }
+QMenuBar::item:pressed { background: @Selected; color: @SelectedText; }
+QMenu { background: @Surface; border: @border solid @Border; border-radius: @radiusMd; padding: @space1; }
+QMenu::item { padding: @space1 @space5 @space1 @space3; border-radius: @radiusSm; }
+QMenu::item:selected { background: @Selected; color: @SelectedText; }
+QMenu::item:disabled { color: @TextDisabled; background: transparent; }
+QMenu::separator { height: @border; background: @Border; margin: @space1 @space2; }
+/* Frosted menus where the desktop blurs behind them (GlassPopups sets glass=true only there). */
+QMenu[glass="true"] { background: @Surface~215; border-color: @BorderStrong~160; }
+
+QToolBar { background: @Window; border: none; border-bottom: @border solid @Border; spacing: @spaceHair; padding: @spaceHair @space1; }
+QMenuBar QToolBar#quickBar { background: transparent; border: none; padding: 0; }
+QToolBar::separator { width: @border; background: @Border; margin: @space1 @space1; }
+QStatusBar { background: @Window; color: @TextMuted; border: none; padding: @spaceHair @space3; }
+QStatusBar QLabel { color: @TextMuted; padding: 0 @space1; }
+QStatusBar::item { border: none; }
+
+QTabWidget::pane { border: none; border-top: @border solid @Border; background: @Window; }
+QTabBar { background: @Window; qproperty-drawBase: 0; }
+QTabBar::tab { background: transparent; color: @TextMuted; min-width: 120px; /* component metric: a canvas tab's least width */
+               padding: @spaceHair @space2; margin: @space1 @border @space1 0; border: @border solid transparent;
+               border-radius: @radiusMd; }
+QTabBar::tab:hover { background: @Hover; color: @Text; }
+QTabBar::tab:selected { background: @Surface; color: @Text; border-color: @Border; }
+QTabBar::scroller { width: @compactSm; }
+QTabBar QToolButton { background: @Window; border: none; border-radius: @radiusSm; }
+
+/* Tool buttons (the tool-button component): transparent, no border, the small radius; a fill under the pointer, the
+   selection when checked, the focus ring on the keyboard's. */
+QToolButton { background: transparent; border: @border solid transparent; border-radius: @radiusSm; padding: @spaceHair @space1; }
+QToolButton:hover { background: @Hover; }
+QToolButton:pressed { background: @Pressed; }
+QToolButton:checked { background: @Selected; color: @SelectedText; }
+QToolButton:disabled { background: transparent; }
+QToolButton:checked:disabled { background: @Selected~90; color: @TextDisabled; }
+QToolButton::menu-indicator { subcontrol-position: right bottom; subcontrol-origin: padding; right: @spaceHair; }
+/* Toolbar buttons are exactly a compact control tall, text or not (Fusion pads a text button beyond it). */
+QToolBar QToolButton { padding: 0 @space1; min-height: @compactInnerMd; max-height: @compactInnerMd; }
+
+/* Push buttons: Secondary, compact everywhere but in a dialog, where they are comfortable (a dialog's widgets are made
+   inside it, so the rule holds when they are first styled; a dock's panel is made before its card takes it). */
+QPushButton { background: @Base; border: @border solid transparent; border-radius: @radiusMd; min-height: @compactInnerMd;
+              padding: 0 @space3; }
+QDialog QPushButton { min-height: @comfortableInnerMd; padding: 0 @space4; }
+QPushButton:hover { background: @Hover; }
+QPushButton:pressed { background: @Pressed; }
+QPushButton:checked { background: @Selected; color: @SelectedText; }
+QPushButton:disabled { background: @Base; color: @TextDisabled; }
+QPushButton:checked:disabled { background: @Selected~90; color: @TextDisabled; }
+/* Primary: the dialog's default button, or a button given role="primary"; at most one per dialog or panel. */
+QPushButton:default, QPushButton[role="primary"], QToolButton[role="primary"] { background: @Accent; color: @AccentText;
+    font-weight: 600; }
+QPushButton:default:hover, QPushButton[role="primary"]:hover, QToolButton[role="primary"]:hover { background: @AccentHover; }
+QPushButton:default:pressed, QPushButton[role="primary"]:pressed, QToolButton[role="primary"]:pressed { background: @AccentPressed; }
+QPushButton:default:disabled, QPushButton[role="primary"]:disabled { background: @Accent~40; color: @TextDisabled; }
+
+/* The timeline (TimelinePanel): its text buttons are Secondary buttons, Play the panel's primary, the
+   transport in a group of its own, the Timeline menu as the panel's title. */
+#timelinePanel QToolButton { background: @Base; border-radius: @radiusMd; min-height: @compactInnerMd; padding: 0 @space3; }
+#timelinePanel QToolButton:hover { background: @Hover; }
+#timelinePanel QToolButton:pressed { background: @Pressed; }
+#timelinePanel QToolButton[role="primary"] { background: @Accent; }
+#timelinePanel QToolButton[role="primary"]:hover { background: @AccentHover; }
+#timelinePanel QToolButton[role="primary"]:pressed { background: @AccentPressed; }
+#timelinePanel QToolButton[role="fixedTool"] { background: transparent; border-radius: @radiusSm; min-height: 0; padding: @spaceHair; }
+#timelinePanel QToolButton[role="fixedTool"]:hover { background: @Hover; }
+#timelinePanel QToolButton[role="fixedTool"]:checked { background: @Selected; }
+#timelinePanel QToolButton[role="timelineTitle"] { background: transparent; font-size: @titleSize; font-weight: 600;
+    padding: @space1 @space2; }
+#timelinePanel QWidget#timelineTrackBar { background: @Window; border-bottom: @border solid @Border; }
+#timelinePanel QWidget[role="timelineGroup"] { background: @Surface; border: @border solid @Border; border-radius: @radiusLg; }
+#timelinePanel QPushButton[role="timelineAddRow"] { border-radius: @radiusSm; padding: @space1 @space2; }
+#timelinePanel QToolButton[popupMode="2"] { padding-right: @space5; }
+#timelinePanel QToolButton::menu-indicator { subcontrol-position: right center; subcontrol-origin: padding; right: @space2; }
+#timelinePanel QToolButton#timelineMore { padding-right: @space3; }
+#timelinePanel QToolButton#timelineMore::menu-indicator { image: none; width: 0; }
+#timelinePanel QToolButton[popupMode="1"] { padding-right: @space5; }
+#timelinePanel QToolButton[role="primary"]::menu-button { border: none; border-left: @border solid @AccentHover; width: @compactSm;
+    border-top-right-radius: @radiusMd; border-bottom-right-radius: @radiusMd; }
+/* A switch as a menu item (the timeline's ⋯ and Play menus), in place of the platform's tick. */
+QToolButton[role="menuSwitch"] { border: none; background: transparent; padding: @space1 @space3; border-radius: @radiusSm; }
+QToolButton[role="menuSwitch"]:hover { background: @Hover; }
+QToolButton[role="menuSwitch"]:checked { background: transparent; color: @Text; }
+QToolButton[role="menuSwitch"]:checked:hover { background: @Hover; }
+
+/* Fields: compact by default, comfortable in dialogs. A QSS min-height is the content's, so the padding is horizontal only. */
+QLineEdit, QPlainTextEdit, QTextEdit { background: @Base; border: @border solid @Border; border-radius: @radiusSm;
+    padding: 0 @space2; selection-background-color: @Accent~70; selection-color: @Text; }
+QLineEdit { min-height: @compactInnerMd; }
+QDialog QLineEdit { min-height: @comfortableInnerMd; }
+QLineEdit:focus, QPlainTextEdit:focus, QTextEdit:focus { border-color: @FocusRing; }
+QLineEdit:disabled { background: @AlternateBase; }
+/* QSpinBox / QDoubleSpinBox / QComboBox are drawn by DoodleboldStyle (which also gives them the density's height): a styled
+   box would lose its arrow glyphs, and QSS cannot draw them without bitmap images. */
+/* An editable select box's own field: the box draws the background. */
+QComboBox QLineEdit, QAbstractSpinBox QLineEdit { border: none; background: transparent; padding: 0; min-height: 0; }
+/* A value bar's type-in field takes the bar's own height. */
+QLineEdit#valueEditor { min-height: 0; }
+
+QScrollBar:vertical { background: transparent; width: 14px; /* component metric: the scroll bar's width */ margin: @space1 @spaceHair;
+    border-radius: @radiusXs; }
+QScrollBar:horizontal { background: transparent; height: 14px; /* component metric: the scroll bar's width */
+    margin: @spaceHair @space1; border-radius: @radiusXs; }
+QScrollBar:hover { background: @Hover~120; }
+QScrollBar::handle:vertical { background: @BorderStrong; border-radius: @radiusXs; min-height: 36px; /* component metric: the
+    handle's least length */ margin: @border; }
+QScrollBar::handle:horizontal { background: @BorderStrong; border-radius: @radiusXs; min-width: 36px; /* component metric: the
+    handle's least length */ margin: @border; }
+QScrollBar::handle:hover { background: @TextMuted; }
+QScrollBar::handle:pressed { background: @Text~200; }
+QScrollBar::add-line, QScrollBar::sub-line { width: 0; height: 0; border: none; background: none; }
+QScrollBar::add-page, QScrollBar::sub-page { background: transparent; }
+
+QToolTip { background: @Surface; color: @Text; border: @border solid @Border; border-radius: @radiusSm; padding: @space1 @space2; }
+QToolTip[glass="true"] { background: @Surface~225; }
+
+QGroupBox { border: @border solid @Border; border-radius: @radiusMd; margin-top: @space3; padding: @space2 @space1 @space1 @space1; }
+QGroupBox::title { subcontrol-origin: margin; subcontrol-position: top left; left: @space2; padding: 0 @space1;
+    color: @TextMuted; }
+
+QCheckBox, QRadioButton { spacing: @space2; background: transparent; }
+/* Check box and radio indicators are drawn by DoodleboldStyle (a rounded box with a tick, a ring with a dot). */
+
+QHeaderView::section { background: @Window; color: @TextMuted; border: none; border-bottom: @border solid @Border;
+    padding: @space1 @space2; }
+QTableView, QTreeView, QListView { background: @Base; alternate-background-color: @AlternateBase;
+    border: @border solid @Border; border-radius: @radiusMd; gridline-color: @Border; selection-background-color: @Selected;
+    selection-color: @SelectedText; outline: 0; }
+QTableView::item, QTreeView::item, QListView::item { padding: @spaceHair @space1; border-radius: @radiusSm; }
+QTableView::item:hover, QTreeView::item:hover, QListView::item:hover { background: @Hover; }
+QTableView::item:selected, QTreeView::item:selected, QListView::item:selected { background: @Selected;
+    color: @SelectedText; }
+QTableCornerButton::section { background: @Window; border: none; }
+
+/* The view slider (timeline, navigator-like scrubbers): a thin track, the filled part in secondary text, an accent thumb. The
+   setting slider is the ValueBar. */
+QSlider::groove:horizontal { height: 4px; /* component metric: the track's thickness */ background: @Border; border: none;
+    border-radius: 2px; /* component metric: half the track */ }
+QSlider::groove:vertical { width: 4px; /* component metric: the track's thickness */ background: @Border; border: none;
+    border-radius: 2px; /* component metric: half the track */ }
+QSlider::sub-page:horizontal { background: @TextMuted; border-radius: 2px; /* component metric: half the track */ }
+/* The thumb: 12 px round (10 + its 1 px border) over the 4 px track (component metrics, on the lines below). */
+QSlider::handle:horizontal { background: @Accent; border: @border solid @Accent; width: 10px; height: 10px; margin: -4px 0; /* component metric */
+    border-radius: 6px; /* component metric */ }
+QSlider::handle:vertical { background: @Accent; border: @border solid @Accent; width: 10px; height: 10px; margin: 0 -4px; /* component metric */
+    border-radius: 6px; /* component metric: as the horizontal thumb */ }
+QSlider::handle:hover { background: @AccentHover; border-color: @AccentHover; }
+QSlider::handle:focus { border-color: @FocusRing; }
+QSlider::handle:disabled { background: @BorderStrong; border-color: @BorderStrong; }
+QSlider::sub-page:disabled { background: @Border; }
+
+QProgressBar { background: @Base; border: @border solid @Border; border-radius: @radiusMd; text-align: center;
+    color: @Text; min-height: @space3; }
+QProgressBar::chunk { background: @Fill; border-radius: @radiusMd; }
+
+QDockWidget { titlebar-close-icon: none; }
+QDockWidget::title { background: @Window; border-bottom: @border solid @Border; padding: @space1 @space2; text-align: left; }
+QDockWidget { font-weight: 600; }
+QDockWidget > QWidget { font-weight: normal; }
+
+QFrame[frameShape="4"], QFrame[frameShape="5"] { color: @Border; }
+QSplitter::handle { background: @Border; }
+QSplitter::handle:horizontal { width: @border; }
+QSplitter::handle:vertical { height: @border; }
+QMessageBox { background: @Window; }
+QDialog[glass="true"] { background: @Window~215; }
+
+/* Overline: card and section titles. */
+QLabel#cardTitle, QLabel[role="sectionTitle"], QToolButton#sectionHeader { color: @TextMuted; font-size: @captionSize;
+    font-weight: 600; letter-spacing: @overlineSpacing; }
+QLabel#cardTitle { padding: 0 @spaceHair @spaceHair @spaceHair; }
+QToolButton#sectionHeader { border: none; background: transparent; text-align: left; padding: @spaceHair 0; }
+QToolButton#sectionHeader:hover { color: @Text; }
+QScrollArea#toolParametersScroll, QScrollArea#colorViewsScroll, QScrollArea#toolGridScroll { background: transparent; }
+QScrollArea#toolParametersScroll > QWidget > QWidget, QScrollArea#colorViewsScroll > QWidget > QWidget,
+QScrollArea#toolGridScroll > QWidget > QWidget { background: transparent; }
+QTreeView#layerTree { background: transparent; border: none; }
+
+QTabBar#toolGroupTabs { background: @Window; border-radius: @radiusMd; }
+QTabBar#toolGroupTabs::tab { min-width: 0; padding: @space1 @space3; margin: @spaceHair; background: transparent;
+    color: @TextMuted; border: none; border-radius: @radiusSm; }
+QTabBar#toolGroupTabs::tab:hover { color: @Text; }
+QTabBar#toolGroupTabs::tab:selected { background: @Selected; color: @SelectedText; font-weight: 600; }
+QToolButton[role="pressure"], QToolButton[role="fixedTool"] { padding: 0; }
+QToolButton[role="fold"], QToolButton[role="fold"]:checked { border: none; background: transparent; padding: 0; }
+QToolButton[role="fold"]:hover { background: @Hover; }
+QLabel[role="hint"] { color: @TextMuted; }
+QWidget[role="insetBox"] { background: @Window; border-radius: @radiusMd; }
+QLabel[role="boxTitle"] { font-weight: 500; }
+QLabel[role="strong"] { font-weight: 600; }
+/* The canvas window header's marks: the replay badge, an accent-tinted pill; the frame chip and its chevrons. */
+QLabel[role="badge"] { background: @Accent~51; color: @TextAccent; border-radius: @radiusMd; padding: @spaceHair @space2; }
+QWidget#frameChip { background: @Base; border-radius: @radiusMd; }
+QToolButton[role="chip"] { border: none; padding: 0; background: transparent; }
+/* Text in the accent's text colour (a result's heading, a pen in range). */
+QLabel[role="accent"] { color: @TextAccent; }
+/* A link-like action: accent text on nothing, underlined under the pointer. */
+QPushButton[role="link"], QDialog QPushButton[role="link"] { color: @TextAccent; background: transparent; min-height: 0;
+    padding: @spaceHair @space1; }
+QPushButton[role="link"]:hover { text-decoration: underline; }
+/* A small square button with a sign in it (the JPEG preview's − + =): no padding, so the sign shows. */
+QPushButton[role="glyph"], QDialog QPushButton[role="glyph"] { padding: 0; min-height: 0; font-weight: 600; }
+/* A shortcut field while it listens for keys. */
+QLineEdit[listening="true"] { border: @borderStrong solid @Accent; background: @Accent~60; }
+/* The timelapse's preview: the picture on the inset ground. */
+QLabel#timelapsePreview { background: @AlternateBase; border-radius: @radiusMd; }
+
+QListWidget#optionsPages { background: @Surface; border: @border solid @Border; border-radius: @radiusLg; padding: @space2;
+    outline: 0; }
+QListWidget#optionsPages::item { padding: @space2 @space3; margin: @border 0; border-radius: @radiusSm; }
+QListWidget#optionsPages::item:hover { background: @Hover; }
+QListWidget#optionsPages::item:selected { background: @Selected; color: @SelectedText; }
+QFrame#optionsSection { background: @Surface; border: @border solid @Border; border-radius: @radiusLg; }
+QScrollArea#optionsPageScroll, QScrollArea#optionsPageScroll > QWidget > QWidget { background: transparent; }
+QSplitter#optionsSplitter::handle { background: transparent; }
+
+/* The focus ring last, so a role's own border never hides it. On a selected or accent fill it is the on-accent colour. */
+QToolButton:focus, QPushButton:focus { border-color: @FocusRing; }
+QToolButton:checked:focus, QPushButton:checked:focus, QPushButton:default:focus, QPushButton[role="primary"]:focus,
+QToolButton[role="primary"]:focus { border-color: @AccentText; }

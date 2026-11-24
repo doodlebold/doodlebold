@@ -1,0 +1,12 @@
+# TSAN suppressions for reports that belong to Qt, Mesa or the system, not to Doodlebold (the sanitizer presets in CMakePresets.json).
+# Qt and glib are not built with ThreadSanitizer: QMutex and QWaitCondition lock with futexes it cannot see, so every hand-over
+# through QThreadPool (QImage's threaded scaling, the timelapse encoder's jobs) shows as a race inside Qt or glib. Our own
+# threads (WorkerPool, parallelFor, the timelapse worker thread) use std::thread and std::mutex, which it sees.
+called_from_lib:libQt6Core.so.6
+called_from_lib:libQt6Gui.so.6
+called_from_lib:libglib-2.0.so.0
+race:QThreadPoolThread::run
+race:QWaitCondition::~QWaitCondition
+# QtGui converts, scales and blends large images on Qt's global thread pool, whose threads live until the program ends.
+race:QRunnable::QGenericRunnable::Helper
+thread:QThread::start

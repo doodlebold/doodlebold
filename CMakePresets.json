@@ -1,0 +1,530 @@
+{
+  "version": 6,
+  "cmakeMinimumRequired": {
+    "major": 3,
+    "minor": 25,
+    "patch": 0
+  },
+  "configurePresets": [
+    {
+      "name": "base",
+      "hidden": true,
+      "generator": "Ninja",
+      "binaryDir": "${sourceDir}/build-${presetName}"
+    },
+    {
+      "name": "linux-develop",
+      "displayName": "Linux: everyday build with tests, benches and hand-run probes (build/)",
+      "inherits": "base",
+      "binaryDir": "${sourceDir}/build",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "RelWithDebInfo",
+        "DOODLEBOLD_BUILD_BENCHES": "ON"
+      },
+      "condition": {
+        "type": "equals",
+        "lhs": "${hostSystemName}",
+        "rhs": "Linux"
+      }
+    },
+    {
+      "name": "linux-lint",
+      "displayName": "Linux: the everyday build with every warning an error, for clang-format and clang-tidy",
+      "inherits": "linux-develop",
+      "binaryDir": "${sourceDir}/build-${presetName}",
+      "cacheVariables": {
+        "DOODLEBOLD_WARNINGS_AS_ERRORS": "ON"
+      }
+    },
+    {
+      "name": "linux-clang",
+      "displayName": "Linux: the everyday build with Clang",
+      "inherits": "linux-develop",
+      "binaryDir": "${sourceDir}/build-${presetName}",
+      "cacheVariables": {
+        "CMAKE_C_COMPILER": "clang",
+        "CMAKE_CXX_COMPILER": "clang++"
+      }
+    },
+    {
+      "name": "linux-ui-gl",
+      "displayName": "Linux: UI tests on X11 with OpenGL (a virtual display, Mesa's software renderer)",
+      "inherits": "linux-develop",
+      "binaryDir": "${sourceDir}/build-${presetName}",
+      "cacheVariables": {
+        "DOODLEBOLD_UI_TEST_PLATFORM": "xcb"
+      }
+    },
+    {
+      "name": "linux-address-sanitizer",
+      "displayName": "Linux: AddressSanitizer and UndefinedBehaviorSanitizer",
+      "inherits": "linux-develop",
+      "binaryDir": "${sourceDir}/build-${presetName}",
+      "cacheVariables": {
+        "DOODLEBOLD_SANITIZE": "address,undefined"
+      }
+    },
+    {
+      "name": "linux-thread-sanitizer",
+      "displayName": "Linux: ThreadSanitizer (by hand: Qt's own threads report races it can't see past)",
+      "inherits": "linux-develop",
+      "binaryDir": "${sourceDir}/build-${presetName}",
+      "cacheVariables": {
+        "DOODLEBOLD_SANITIZE": "thread"
+      }
+    },
+    {
+      "name": "linux-release",
+      "displayName": "Linux: release build for the RPM and the AppImage",
+      "inherits": "linux-develop",
+      "binaryDir": "${sourceDir}/build-${presetName}",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
+        "DOODLEBOLD_BUILD_TESTS": "OFF",
+        "CMAKE_INSTALL_PREFIX": "/usr"
+      }
+    },
+    {
+      "name": "windows-msvc",
+      "displayName": "Windows: Visual Studio 2022 build with tests (needs VCPKG_ROOT and a Developer prompt)",
+      "inherits": "base",
+      "toolchainFile": "$env{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "RelWithDebInfo",
+        "VCPKG_TARGET_TRIPLET": "x64-windows",
+        "CMAKE_POLICY_DEFAULT_CMP0141": "NEW",
+        "CMAKE_MSVC_DEBUG_INFORMATION_FORMAT": "Embedded"
+      },
+      "condition": {
+        "type": "equals",
+        "lhs": "${hostSystemName}",
+        "rhs": "Windows"
+      }
+    },
+    {
+      "name": "windows-msvc-release",
+      "displayName": "Windows: Visual Studio 2022 release build for the zip",
+      "inherits": "windows-msvc",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
+        "DOODLEBOLD_BUILD_TESTS": "OFF"
+      }
+    },
+    {
+      "name": "windows-mingw-cross",
+      "displayName": "Windows from Linux: MinGW-w64 cross build (Fedora's mingw64 packages)",
+      "inherits": "base",
+      "toolchainFile": "/usr/share/mingw/toolchain-mingw64.cmake",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "Release",
+        "DOODLEBOLD_BUILD_TESTS": "OFF",
+        "DOODLEBOLD_MINGW_ROOT": "/usr/x86_64-w64-mingw32/sys-root/mingw"
+      },
+      "condition": {
+        "type": "equals",
+        "lhs": "${hostSystemName}",
+        "rhs": "Linux"
+      }
+    }
+  ],
+  "buildPresets": [
+    {
+      "name": "linux-develop",
+      "configurePreset": "linux-develop"
+    },
+    {
+      "name": "lint",
+      "displayName": "Build with warnings as errors, then clang-format and clang-tidy",
+      "configurePreset": "linux-lint",
+      "targets": [
+        "lint"
+      ]
+    },
+    {
+      "name": "linux-clang",
+      "configurePreset": "linux-clang"
+    },
+    {
+      "name": "linux-ui-gl",
+      "configurePreset": "linux-ui-gl"
+    },
+    {
+      "name": "linux-address-sanitizer",
+      "configurePreset": "linux-address-sanitizer"
+    },
+    {
+      "name": "linux-thread-sanitizer",
+      "configurePreset": "linux-thread-sanitizer"
+    },
+    {
+      "name": "linux-release",
+      "configurePreset": "linux-release"
+    },
+    {
+      "name": "windows-msvc",
+      "configurePreset": "windows-msvc"
+    },
+    {
+      "name": "windows-msvc-release",
+      "configurePreset": "windows-msvc-release"
+    },
+    {
+      "name": "windows-mingw-cross",
+      "configurePreset": "windows-mingw-cross"
+    }
+  ],
+  "testPresets": [
+    {
+      "name": "gate",
+      "hidden": true,
+      "output": {
+        "outputOnFailure": true,
+        "maxFailedTestOutputSize": 4000000
+      },
+      "execution": {
+        "jobs": 8,
+        "timeout": 1800
+      },
+      "filter": {
+        "exclude": {
+          "name": "TimelapseCost|EffectSession\\.ALargeLayerDoesNotHoldUpTheCaller"
+        }
+      }
+    },
+    {
+      "name": "test-before-commit",
+      "displayName": "Before a commit: unit and UI tests, tool scripts, 102 brush-pixel cases (about a minute)",
+      "inherits": "gate",
+      "configurePreset": "linux-develop",
+      "filter": {
+        "include": {
+          "label": "^(unit|ui|tool-scripts|brush-pixels-subset)$"
+        },
+        "exclude": {
+          "name": "TimelapseCost|EffectSession\\.ALargeLayerDoesNotHoldUpTheCaller|LargeTips\\.SavingWork"
+        }
+      }
+    },
+    {
+      "name": "test-before-merge",
+      "displayName": "Before a merge: every test and all 479 brush-pixel cases",
+      "inherits": "gate",
+      "configurePreset": "linux-develop",
+      "filter": {
+        "include": {
+          "label": "^(unit|ui|tool-scripts|brush-pixels-all)$"
+        },
+        "exclude": {
+          "name": "TimelapseCost|EffectSession\\.ALargeLayerDoesNotHoldUpTheCaller"
+        }
+      }
+    },
+    {
+      "name": "test-thread-counts",
+      "displayName": "All 479 brush-pixel cases again on 2 and on 4 threads (after a change to threading)",
+      "inherits": "gate",
+      "configurePreset": "linux-develop",
+      "filter": {
+        "include": {
+          "label": "^brush-pixels-cores$"
+        },
+        "exclude": {
+          "name": "TimelapseCost|EffectSession\\.ALargeLayerDoesNotHoldUpTheCaller"
+        }
+      }
+    },
+    {
+      "name": "linux-clang",
+      "inherits": "test-before-commit",
+      "configurePreset": "linux-clang"
+    },
+    {
+      "name": "linux-ui-gl",
+      "displayName": "The 3 UI tests that need OpenGL, which skip offscreen, on X11 with software OpenGL: run under xvfb-run. Only those: on llvmpipe the playback tests miss their wall-clock beats",
+      "inherits": "gate",
+      "configurePreset": "linux-ui-gl",
+      "filter": {
+        "include": {
+          "label": "^ui$"
+        },
+        "exclude": {
+          "name": "TimelapseCost|EffectSession\\.ALargeLayerDoesNotHoldUpTheCaller"
+        }
+      },
+      "environment": {
+        "LIBGL_ALWAYS_SOFTWARE": "1",
+        "GTEST_FILTER": "CanvasDisplay.ACutCanvasLooksAsItWouldInOneTexture:OptionsTest.ZoomedOutIsLeftToTheGraphicsUntilTheUserPicks:TimelapseUiTest.APenStrokeOnTheCanvasRecordsItselfBeingDrawnAtAnyZoom"
+      }
+    },
+    {
+      "name": "linux-address-sanitizer",
+      "displayName": "Unit and UI tests under ASan and UBSan, speed checks left out",
+      "inherits": "gate",
+      "configurePreset": "linux-address-sanitizer",
+      "execution": {
+        "jobs": 4,
+        "timeout": 3600
+      },
+      "filter": {
+        "include": {
+          "label": "^(unit|ui)$"
+        },
+        "exclude": {
+          "name": "TimelapseCost|EffectSession\\.ALargeLayerDoesNotHoldUpTheCaller"
+        }
+      },
+      "environment": {
+        "ASAN_OPTIONS": "detect_leaks=1:detect_stack_use_after_return=1:check_initialization_order=1:strict_init_order=1",
+        "UBSAN_OPTIONS": "print_stacktrace=1:halt_on_error=1:suppressions=${sourceDir}/tools/sanitizer-suppressions/ubsan.supp",
+        "LSAN_OPTIONS": "suppressions=${sourceDir}/tools/sanitizer-suppressions/lsan.supp:print_suppressions=0",
+        "GTEST_FILTER": "-TimelineUiTest.AThousandsOfFramesTimelineStaysQuick:TimelineUiTest.AThousandsOfFramesCanvasStaysQuickInTheWindow:EffectsUiTest.ALargeLayerAppliesWithoutBlockingTheWindow"
+      }
+    },
+    {
+      "name": "linux-thread-sanitizer",
+      "displayName": "Unit tests under TSan, by hand",
+      "inherits": "gate",
+      "configurePreset": "linux-thread-sanitizer",
+      "execution": {
+        "jobs": 2,
+        "timeout": 3600
+      },
+      "filter": {
+        "include": {
+          "label": "^unit$"
+        },
+        "exclude": {
+          "name": "TimelapseCost|EffectSession\\.ALargeLayerDoesNotHoldUpTheCaller|DeletingDropsItAndANewCanvas|AReopenedFileKeepsRecording"
+        }
+      },
+      "environment": {
+        "TSAN_OPTIONS": "suppressions=${sourceDir}/tools/sanitizer-suppressions/tsan.supp:second_deadlock_stack=1:halt_on_error=1"
+      }
+    },
+    {
+      "name": "windows-msvc",
+      "displayName": "Windows: unit and UI tests, offscreen",
+      "inherits": "test-before-commit",
+      "configurePreset": "windows-msvc",
+      "filter": {
+        "include": {
+          "label": "^(unit|ui)$"
+        },
+        "exclude": {
+          "name": "TimelapseCost|EffectSession\\.ALargeLayerDoesNotHoldUpTheCaller"
+        }
+      }
+    },
+    {
+      "name": "windows-msvc-brush-pixels",
+      "displayName": "Windows: all 479 brush-pixel cases against Windows' own checksum file",
+      "inherits": "gate",
+      "configurePreset": "windows-msvc",
+      "filter": {
+        "include": {
+          "label": "^brush-pixels-all$"
+        },
+        "exclude": {
+          "name": "TimelapseCost|EffectSession\\.ALargeLayerDoesNotHoldUpTheCaller"
+        }
+      }
+    }
+  ],
+  "packagePresets": [
+    {
+      "name": "fedora-rpm",
+      "configurePreset": "linux-release",
+      "generators": [
+        "RPM"
+      ]
+    },
+    {
+      "name": "windows-zip",
+      "configurePreset": "windows-msvc-release",
+      "generators": [
+        "ZIP"
+      ]
+    },
+    {
+      "name": "windows-mingw-zip",
+      "configurePreset": "windows-mingw-cross",
+      "generators": [
+        "ZIP"
+      ]
+    }
+  ],
+  "workflowPresets": [
+    {
+      "name": "test-before-commit",
+      "displayName": "Build, then the checks to run before every commit",
+      "steps": [
+        {
+          "type": "configure",
+          "name": "linux-develop"
+        },
+        {
+          "type": "build",
+          "name": "linux-develop"
+        },
+        {
+          "type": "test",
+          "name": "test-before-commit"
+        }
+      ]
+    },
+    {
+      "name": "test-before-merge",
+      "displayName": "Build, then every test and all 479 brush-pixel cases",
+      "steps": [
+        {
+          "type": "configure",
+          "name": "linux-develop"
+        },
+        {
+          "type": "build",
+          "name": "linux-develop"
+        },
+        {
+          "type": "test",
+          "name": "test-before-merge"
+        }
+      ]
+    },
+    {
+      "name": "linux-clang",
+      "steps": [
+        {
+          "type": "configure",
+          "name": "linux-clang"
+        },
+        {
+          "type": "build",
+          "name": "linux-clang"
+        },
+        {
+          "type": "test",
+          "name": "linux-clang"
+        }
+      ]
+    },
+    {
+      "name": "linux-address-sanitizer",
+      "steps": [
+        {
+          "type": "configure",
+          "name": "linux-address-sanitizer"
+        },
+        {
+          "type": "build",
+          "name": "linux-address-sanitizer"
+        },
+        {
+          "type": "test",
+          "name": "linux-address-sanitizer"
+        }
+      ]
+    },
+    {
+      "name": "linux-thread-sanitizer",
+      "steps": [
+        {
+          "type": "configure",
+          "name": "linux-thread-sanitizer"
+        },
+        {
+          "type": "build",
+          "name": "linux-thread-sanitizer"
+        },
+        {
+          "type": "test",
+          "name": "linux-thread-sanitizer"
+        }
+      ]
+    },
+    {
+      "name": "windows-msvc",
+      "steps": [
+        {
+          "type": "configure",
+          "name": "windows-msvc"
+        },
+        {
+          "type": "build",
+          "name": "windows-msvc"
+        },
+        {
+          "type": "test",
+          "name": "windows-msvc"
+        }
+      ]
+    },
+    {
+      "name": "fedora-rpm",
+      "displayName": "Release build and its RPM, in build-linux-release/",
+      "steps": [
+        {
+          "type": "configure",
+          "name": "linux-release"
+        },
+        {
+          "type": "build",
+          "name": "linux-release"
+        },
+        {
+          "type": "package",
+          "name": "fedora-rpm"
+        }
+      ]
+    },
+    {
+      "name": "windows-zip",
+      "displayName": "Release build, Qt deployed beside the exe, and its zip",
+      "steps": [
+        {
+          "type": "configure",
+          "name": "windows-msvc-release"
+        },
+        {
+          "type": "build",
+          "name": "windows-msvc-release"
+        },
+        {
+          "type": "package",
+          "name": "windows-zip"
+        }
+      ]
+    },
+    {
+      "name": "windows-mingw-zip",
+      "displayName": "Windows zip cross-built on Linux with MinGW-w64",
+      "steps": [
+        {
+          "type": "configure",
+          "name": "windows-mingw-cross"
+        },
+        {
+          "type": "build",
+          "name": "windows-mingw-cross"
+        },
+        {
+          "type": "package",
+          "name": "windows-mingw-zip"
+        }
+      ]
+    },
+    {
+      "name": "lint",
+      "displayName": "Build with every warning an error, then check formatting and run clang-tidy",
+      "steps": [
+        {
+          "type": "configure",
+          "name": "linux-lint"
+        },
+        {
+          "type": "build",
+          "name": "lint"
+        }
+      ]
+    }
+  ]
+}

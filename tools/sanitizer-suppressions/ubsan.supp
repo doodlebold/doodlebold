@@ -1,0 +1,1 @@
+# UBSAN suppressions for reports that belong to Qt, Mesa or the system, not to Doodlebold (the sanitizer presets in CMakePresets.json).

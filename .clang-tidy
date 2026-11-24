@@ -1,0 +1,163 @@
+# clang-tidy for Doodlebold's own code: src/, plugins/ and tests/. `cmake --build --preset lint` runs it with clang-format.
+#
+# The families are bugprone-*, performance-*, modernize-*, readability-*, and the cppcoreguidelines-* checks that fit a Qt
+# program that paints pixels. Every check turned off below gives its reason, under the list. Three reasons come up often:
+# - Qt: a widget belongs to its parent, which deletes it, so `new` without a smart pointer is how Qt code is written.
+#   Signals, slots, Q_OBJECT and Q_PROPERTY are macros, and Qt's enums and flags are plain enums.
+# - Painting: the brush code walks tiles of pixels by index and pointer in hot loops. Checked access, zero-filled buffers or
+#   wider maths there cost speed, and a different rounding would move pixels (the brush pixels must stay to the bit).
+# - Style the code settles another way, where following the check would only churn lines.
+Checks: >
+  -*,
+  bugprone-*,
+  performance-*,
+  modernize-*,
+  readability-*,
+  cppcoreguidelines-*,
+
+  -bugprone-easily-swappable-parameters,
+  -bugprone-implicit-widening-of-multiplication-result,
+  -bugprone-incorrect-roundings,
+  -bugprone-misplaced-widening-cast,
+  -bugprone-narrowing-conversions,
+  -bugprone-throwing-static-initialization,
+  -bugprone-unchecked-optional-access,
+
+  -cppcoreguidelines-avoid-c-arrays,
+  -cppcoreguidelines-avoid-const-or-ref-data-members,
+  -cppcoreguidelines-avoid-do-while,
+  -cppcoreguidelines-avoid-magic-numbers,
+  -cppcoreguidelines-avoid-non-const-global-variables,
+  -cppcoreguidelines-init-variables,
+  -cppcoreguidelines-macro-usage,
+  -cppcoreguidelines-missing-std-forward,
+  -cppcoreguidelines-narrowing-conversions,
+  -cppcoreguidelines-non-private-member-variables-in-classes,
+  -cppcoreguidelines-owning-memory,
+  -cppcoreguidelines-prefer-member-initializer,
+  -cppcoreguidelines-pro-bounds-array-to-pointer-decay,
+  -cppcoreguidelines-pro-bounds-avoid-unchecked-container-access,
+  -cppcoreguidelines-pro-bounds-constant-array-index,
+  -cppcoreguidelines-pro-bounds-pointer-arithmetic,
+  -cppcoreguidelines-pro-type-cstyle-cast,
+  -cppcoreguidelines-pro-type-reinterpret-cast,
+  -cppcoreguidelines-pro-type-const-cast,
+  -cppcoreguidelines-pro-type-static-cast-downcast,
+  -cppcoreguidelines-pro-type-union-access,
+  -cppcoreguidelines-pro-type-vararg,
+  -cppcoreguidelines-special-member-functions,
+  -cppcoreguidelines-use-enum-class,
+
+  -modernize-avoid-c-arrays,
+  -modernize-avoid-c-style-cast,
+  -modernize-return-braced-init-list,
+  -modernize-use-auto,
+  -modernize-use-designated-initializers,
+  -modernize-use-integer-sign-comparison,
+  -modernize-use-nodiscard,
+  -modernize-use-std-numbers,
+  -modernize-use-trailing-return-type,
+
+  -performance-enum-size,
+
+  -readability-avoid-nested-conditional-operator,
+  -readability-braces-around-statements,
+  -readability-convert-member-functions-to-static,
+  -readability-function-cognitive-complexity,
+  -readability-identifier-length,
+  -readability-implicit-bool-conversion,
+  -readability-isolate-declaration,
+  -readability-magic-numbers,
+  -readability-make-member-function-const,
+  -readability-math-missing-parentheses,
+  -readability-named-parameter,
+  -readability-redundant-access-specifiers,
+  -readability-redundant-member-init,
+  -readability-simplify-boolean-expr,
+  -readability-use-std-min-max,
+  -readability-uppercase-literal-suffix
+
+# Why each is off, in the order above:
+# bugprone-easily-swappable-parameters         (x, y), (width, height) and (from, to) pairs are everywhere in pixel code.
+# bugprone-implicit-widening-of-multiplication-result
+#                                              int index maths in pixel loops, bounded by the canvas: kMaxCanvasSide is 16384, so
+#                                              even side * side * 4 channels stays inside int. Widening every product slows the loops.
+# bugprone-misplaced-widening-cast            as above: size_t(y * width + x) on pixel indices that fit in int.
+# bugprone-incorrect-roundings                 (int)(x + 0.5) and std::lround differ for negative values and halves, so the
+#                                              rewrite changes results; the code is pinned to today's by the brush pixels and the
+#                                              file and UI tests, and each site would need its own proof.
+# bugprone-narrowing-conversions               the compiler's -Wconversion checks the same conversions (cmake/Warnings.cmake).
+# bugprone-throwing-static-initialization      static QStrings and QLists are Qt's way to hold constants, and running out of
+#                                              memory at start-up isn't something to recover from.
+# bugprone-unchecked-optional-access          it can't follow an invariant across member functions (the evaluator is there whenever
+#                                              no worker is, the video whenever videoShown() says so), nor gtest's ASSERT_TRUE. Its
+#                                              22 places in src/ were read on 2026-11-24: 21 are guarded where they
+#                                              read, and moveText reads the text its three callers checked for.
+# cppcoreguidelines-avoid-c-arrays             small fixed tables in painting code; std::array where it reads better.
+# cppcoreguidelines-avoid-const-or-ref-data-members
+#                                              short-lived helpers hold a reference to what they work on, by design.
+# cppcoreguidelines-avoid-do-while             rare, and clearer than the rewrite where used.
+# cppcoreguidelines-avoid-magic-numbers        maths constants and fitted values carry a comment saying where they come from.
+# cppcoreguidelines-avoid-non-const-global-variables
+#                                              Q_GLOBAL_STATIC and a few process-wide test switches.
+# cppcoreguidelines-init-variables             buffers filled straight after they are declared; zero-filling them costs time in loops.
+# cppcoreguidelines-macro-usage                Qt's macros (Q_OBJECT, signals, slots, QStringLiteral) and the platform switches.
+# cppcoreguidelines-missing-std-forward        callables taken as F&& are called, often more than once, never handed on: forwarding
+#                                              one would let a single call move it away.
+# cppcoreguidelines-narrowing-conversions      as bugprone-narrowing-conversions.
+# cppcoreguidelines-non-private-member-variables-in-classes
+#                                              plain structs of settings and results: their fields are their interface.
+# cppcoreguidelines-owning-memory              Qt's parent owns its child widgets and deletes them: `new QWidget(parent)`.
+# cppcoreguidelines-prefer-member-initializer  moving assignments into the initializer list changes the order they run in.
+# cppcoreguidelines-pro-bounds-*               pixel loops walk tiles by pointer and index; checked access costs speed there.
+# cppcoreguidelines-pro-type-cstyle-cast       the code writes conversions as double(x); a spelled-out cast adds only length.
+# cppcoreguidelines-pro-type-const-cast        tiles are copy-on-write: shared as const, and written through const_cast only once
+#                                              the map holds the only reference (TiledImage, LayerStack, SelectionMask).
+# cppcoreguidelines-pro-type-reinterpret-cast  reading and writing file formats and checksums byte by byte.
+# cppcoreguidelines-pro-type-static-cast-downcast
+#                                              Qt's events: a QMouseEvent from a QEvent after checking its type().
+# cppcoreguidelines-pro-type-union-access      SIMD registers and the plugin interface's C unions.
+# cppcoreguidelines-pro-type-vararg            printf-style output in the tools and tests.
+# cppcoreguidelines-special-member-functions   Qt classes are QObjects, which are never copied; spelling out all five adds noise.
+# cppcoreguidelines-use-enum-class             Qt's enums, and plain enums that index tables or combine as flags.
+# modernize-avoid-c-arrays                     as cppcoreguidelines-avoid-c-arrays.
+# modernize-avoid-c-style-cast                 as cppcoreguidelines-pro-type-cstyle-cast.
+# modernize-return-braced-init-list            `return QRect(...)` names what it returns; `return {...}` hides it.
+# modernize-use-auto                           the type is spelled out where it says something, auto where it doesn't.
+# modernize-use-designated-initializers        aggregate initializers are short and in their struct's order.
+# modernize-use-integer-sign-comparison        -Wsign-compare already flags the mixes that matter.
+# modernize-use-nodiscard                      it would go on nearly every getter.
+# modernize-use-std-numbers                    the literals it flags are fitted values or short forms (0.6931 for ln 2) that differ
+#                                              from std::numbers' by up to 1e-3; swapping them would move pixels.
+# modernize-use-trailing-return-type           a style the code doesn't use.
+# performance-enum-size                        an enum's size never shows in a profile here; uint8_t is used where it would.
+# readability-avoid-nested-conditional-operator
+#                                              aligned chains of ?: read as a table, the way clang-format lays them out.
+# readability-braces-around-statements         a one-line body goes without braces.
+# readability-convert-member-functions-to-static
+#                                              slots and overrides that happen not to use `this`.
+# readability-function-cognitive-complexity    the painting steps are long on purpose: splitting them costs speed.
+# readability-identifier-length                x, y, t, a and b are the names in the maths.
+# readability-implicit-bool-conversion         `if (pointer)` and `if (count)`, idiomatic in C++ and Qt.
+# readability-isolate-declaration              `int x = 0, y = 0;` for values that belong together.
+# readability-magic-numbers                    as cppcoreguidelines-avoid-magic-numbers.
+# readability-make-member-function-const       a setter that changes the widgets it points to doesn't change the object's members,
+#                                              but marking it const would say it changes nothing.
+# readability-math-missing-parentheses         the maths follows the usual precedence.
+# readability-named-parameter                  an override's unused parameter goes unnamed, as in Qt's own code.
+# readability-redundant-access-specifiers      Qt's `public slots:` and `signals:` sections repeat an access specifier.
+# readability-redundant-member-init           `member{}` in an aggregate stands for the member a partial initializer leaves out,
+#                                              which GCC's -Wmissing-field-initializers otherwise warns about.
+# readability-simplify-boolean-expr            De Morgan's rewrites turn !(a >= b) into a < b, which differ for NaN, and the brush
+#                                              code's comparisons are pinned by the brush pixels.
+# readability-use-std-min-max                  std::max(a, b) and a > b ? a : b differ for NaN and for -0 against +0.
+# readability-uppercase-literal-suffix         1.0f, as written everywhere.
+
+CheckOptions:
+  # A thread that can't start (std::system_error) is a case handled by doing without it; each such catch says so.
+  bugprone-empty-catch.AllowEmptyCatchForExceptions: 'std::system_error'
+  # Pixel buffers are declared without zero-filling, then written in full before they are read.
+  cppcoreguidelines-pro-type-member-init.IgnoreArrays: true
+# The plugin interface's header is C, checked by the C plugins that include it, not by the C++ files that do.
+HeaderFilterRegex: '.*/(src|tests|plugins/examples)/.*'
+ExcludeHeaderFilterRegex: '.*/(third_party|build[^/]*)/.*'

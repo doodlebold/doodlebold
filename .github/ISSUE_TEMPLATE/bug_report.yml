@@ -1,0 +1,81 @@
+name: Bug report
+description: Something in Doodlebold does not work as it should
+labels: [bug]
+body:
+  - type: dropdown
+    id: kind
+    attributes:
+      label: What kind of problem?
+      options:
+        - Crash or freeze
+        - Brush or painting
+        - Pen tablet
+        - Timelapse
+        - Opening or saving files
+        - Interface or menus
+        - Something else
+    validations:
+      required: true
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened?
+      description: Say it in a sentence or two. A screenshot helps.
+      placeholder: The brush stops drawing after I undo twice.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: How can we see it?
+      description: The steps, one per line.
+      placeholder: |
+        1. New canvas, 1000 x 1000
+        2. Draw a stroke with the Pencil
+        3. Press Ctrl+Z twice
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: What did you expect?
+      placeholder: The brush keeps drawing.
+  - type: dropdown
+    id: often
+    attributes:
+      label: How often does it happen?
+      options:
+        - Every time
+        - Sometimes
+        - Once
+  - type: input
+    id: version
+    attributes:
+      label: Doodlebold version
+      description: Help > Report a Bug fills this in for you.
+      placeholder: "1.0.0"
+    validations:
+      required: true
+  - type: input
+    id: system
+    attributes:
+      label: System
+      description: Your OS, desktop and window system.
+      placeholder: Fedora Linux 44, COSMIC, wayland, Qt 6.8.3
+  - type: input
+    id: tablet
+    attributes:
+      label: Pen tablet
+      description: Leave empty if you use a mouse. For pen problems, paste the report from Help > Tablet Diagnostics > Copy below.
+      placeholder: Wacom Intuos S Pen
+  - type: textarea
+    id: log
+    attributes:
+      label: Terminal output
+      description: Start Doodlebold from a terminal (`doodlebold`), do the steps, and paste what it prints. For a crash this is the most useful part.
+      render: shell
+  - type: textarea
+    id: files
+    attributes:
+      label: Screenshot or file
+      description: Drag it in here. A .doodle file that shows the problem is the best help.

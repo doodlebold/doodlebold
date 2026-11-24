@@ -1,0 +1,4 @@
+# LSAN suppressions for reports that belong to Qt, Mesa or the system, not to Doodlebold (the sanitizer presets in CMakePresets.json).
+# Qt 6.11 (seen on the offscreen and xcb platforms): a deleted QOpenGLWidget leaves its QOpenGLContext behind. A bare
+# QOpenGLWidget shown and deleted reproduces it. Only allocations made inside Qt's initialize() match.
+leak:QOpenGLWidgetPrivate::initialize

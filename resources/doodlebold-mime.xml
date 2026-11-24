@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Doodlebold's own canvas files, so that file managers open them with Doodlebold (installed into share/mime/packages). -->
+<mime-info xmlns="http://www.freedesktop.org/standards/shared-mime-info">
+  <mime-type type="application/x-doodlebold">
+    <comment>Doodlebold canvas</comment>
+    <glob pattern="*.doodle"/>
+    <magic priority="50">
+      <match type="string" offset="1" value="DOODLE"/>
+    </magic>
+  </mime-type>
+</mime-info>

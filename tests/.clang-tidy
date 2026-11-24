@@ -1,0 +1,14 @@
+# The tests and benches take the checks of the .clang-tidy above, less these:
+# bugprone-float-loop-counter                 the tests sweep distances and pressures in exact binary steps (0.5, 0.25).
+# bugprone-unchecked-string-to-number-conversion
+#                                              the benches and probes read their own arguments with atoi; a typo is the caller's.
+# bugprone-integer-division                   pixel places are worked out in whole pixels on purpose (width / 2).
+# bugprone-exception-escape                    a bench's or probe's main ending on an uncaught exception is the failure it should show.
+# bugprone-random-generator-seed               tests seed their random numbers with constants so every run is the same.
+InheritParentConfig: true
+Checks: >
+  -bugprone-float-loop-counter,
+  -bugprone-unchecked-string-to-number-conversion,
+  -bugprone-integer-division,
+  -bugprone-exception-escape,
+  -bugprone-random-generator-seed

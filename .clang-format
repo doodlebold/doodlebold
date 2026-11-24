@@ -1,0 +1,38 @@
+# How the C and C++ sources are laid out: LLVM's style, adjusted to how the code was written before there was a config.
+# `cmake --build build --target format` applies it, and `lint` fails on any file it would change (cmake/Lint.cmake).
+BasedOnStyle: LLVM
+IndentWidth: 4
+# Lines run long: names and comments are written out in words, and wrapping them at 80 or 120 would break most of them.
+ColumnLimit: 140
+PointerAlignment: Left
+AccessModifierOffset: -4
+IndentCaseLabels: false
+# Short bodies stay on one line where they did: getters in classes, lambdas and `case X: return y;`, but an if or a loop always
+# takes its own line for its body.
+AllowShortFunctionsOnASingleLine: Inline
+AllowShortIfStatementsOnASingleLine: Never
+AllowShortLoopsOnASingleLine: false
+AllowShortCaseLabelsOnASingleLine: true
+AllowShortLambdasOnASingleLine: All
+AllowShortBlocksOnASingleLine: Never
+AllowShortEnumsOnASingleLine: false
+BreakConstructorInitializers: BeforeColon
+PackConstructorInitializers: NextLine
+NamespaceIndentation: None
+# The code doesn't close namespaces with a comment.
+FixNamespaceComments: false
+# Include order is left as written: some includes depend on what comes before them (<windows.h> on Windows), which a build on
+# one platform can't prove harmless to reorder.
+IncludeBlocks: Preserve
+SortIncludes: Never
+# Comments are wrapped by hand, often to keep a formula or a list on its own line.
+ReflowComments: false
+SpacesBeforeTrailingComments: 2
+AlignTrailingComments:
+  Kind: Leave
+AlignConsecutiveAssignments: None
+AlignOperands: Align
+BinPackArguments: true
+BinPackParameters: true
+Cpp11BracedListStyle: true
+InsertNewlineAtEOF: true

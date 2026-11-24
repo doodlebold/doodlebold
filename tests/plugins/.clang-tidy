@@ -1,0 +1,7 @@
+# The test plugins are C, as a plugin is: the C++ checks above don't apply (modernize-* asks for `using` and enums, the C++
+# Core Guidelines are for C++), and `if (!(p = take(c, n)))` is how a C reader checks each read as it goes.
+InheritParentConfig: true
+Checks: >
+  -modernize-*,
+  -cppcoreguidelines-*,
+  -bugprone-assignment-in-if-condition

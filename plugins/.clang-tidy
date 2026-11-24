@@ -1,0 +1,6 @@
+# The plugin interface and its example are C (C99), so the C++ checks above don't apply: modernize-* would ask for `using`
+# and enums in place of C's typedefs and #defines, and the C++ Core Guidelines are for C++.
+InheritParentConfig: true
+Checks: >
+  -modernize-*,
+  -cppcoreguidelines-*
