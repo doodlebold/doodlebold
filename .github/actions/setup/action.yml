@@ -28,15 +28,16 @@ runs:
         version: '6.8.3'
         cache: true
 
-    - name: GoogleTest and libjpeg-turbo (Windows)
-      if: inputs.platform == 'windows'
-      shell: pwsh
-      run: ci/install-windows-vcpkg-packages.ps1
-
     - name: Visual Studio environment (Windows)
       # Puts cl and Ninja on the PATH, for the presets' Ninja generator.
       if: inputs.platform == 'windows'
       uses: ilammy/msvc-dev-cmd@0b201ec74fa43914dc39ae48a89fd1d8cb592756  # v1.13.0
+
+    - name: GoogleTest and libjpeg-turbo (Windows)
+      # After the Visual Studio environment, which sets VCPKG_ROOT to Visual Studio's own vcpkg, where nothing is installed.
+      if: inputs.platform == 'windows'
+      shell: pwsh
+      run: ci/install-windows-vcpkg-packages.ps1
 
     - name: Qt (AppImage)
       # Built on the oldest supported base, so the AppImage runs on most distributions (glibc 2.35 and newer).
