@@ -3,6 +3,7 @@
 #include "ui/NewCanvasDialog.h"
 
 #include "core/io/DocumentFormat.h"
+#include "ui/Components.h"
 #include "ui/Theme.h"
 
 #include <QColorDialog>
@@ -85,6 +86,29 @@ QString presetLabel(const CanvasPreset& p) {
     return p.separator ? QString() : p.name;
 }
 
+constexpr int kSwatchWidth = 40;  // px: the background swatch's width beside its select box (component metric)
+constexpr int kSwatchChecker = 5;  // px: a square of the swatch's checkerboard, so a 40 × 28 swatch shows a few (component metric)
+
+// What the canvas shows behind its layers. A transparent mode over a flat colour shows the checkerboard and that colour split
+// across the diagonal, so it doesn't look like the opaque mode of the same colour.
+QPixmap backgroundPreview(const CanvasBackground& background, QSize size) {
+    QPixmap pixmap(size);
+    QPainter p(&pixmap);
+    const QRect area(QPoint(0, 0), size);
+    const Backdrop backdrop = background.backdrop();
+    if (backdrop.square > 0) {
+        components::paintChecker(p, area, kSwatchChecker, backdrop.a, backdrop.b);
+    } else if (background.isTransparent()) {
+        components::paintChecker(p, area, kSwatchChecker, Theme::kCheckerLight, Theme::kCheckerDark);
+        p.setPen(Qt::NoPen);
+        p.setBrush(QColor::fromRgb(backdrop.a));
+        p.drawPolygon(QPolygon({area.topRight(), area.bottomRight() + QPoint(1, 1), area.bottomLeft() + QPoint(0, 1)}));
+    } else {
+        p.fillRect(area, QColor::fromRgb(backdrop.a));
+    }
+    return pixmap;
+}
+
 }
 
 CanvasFieldsEditor::CanvasFieldsEditor(const NewCanvasValues& values, bool allowNoBackground, QObject* parent)
@@ -158,9 +182,12 @@ int CanvasFieldsEditor::build(QGridLayout* grid, int row, QWidget* parent) {
     }
     m_swatch = new QPushButton(parent);
     m_swatch->setObjectName(QStringLiteral("backgroundSwatch"));
-    m_swatch->setFixedSize(40, Theme::comfortable::kControlMd);  // as tall as the select box beside it; 40 px wide (component metric)
+    m_swatch->setFixedSize(kSwatchWidth, Theme::comfortable::kControlMd);  // as tall as the select box beside it
+    m_swatch->setIconSize(m_swatch->size() - QSize(2 * Theme::kBorder, 2 * Theme::kBorder));
     m_swatch->setToolTip(tr("Canvas Background Color"));
     auto* bgRow = new QHBoxLayout;
+    bgRow->setContentsMargins(0, 0, 0, 0);
+    bgRow->setSpacing(Theme::metric(Theme::Metric::Gap));
     bgRow->addWidget(m_background, 1);
     bgRow->addWidget(m_swatch);
     grid->addWidget(rightLabel(tr("Background :"), parent), row, 0);
@@ -211,9 +238,13 @@ int CanvasFieldsEditor::build(QGridLayout* grid, int row, QWidget* parent) {
             return;
         CanvasBackground b = m_model.background();
         b.color = QColor(picked->red(), picked->green(), picked->blue());
+        // A colour picked is meant to be seen: White or Black would hide it, so it's the Color mode, transparent or not.
+        b.mode = b.isTransparent() ? BackgroundMode::TransparencyColor : BackgroundMode::Color;
         m_model.setBackground(b);
-        if (m_choice)
-            m_choice = b;
+        m_choice = b;
+        m_syncing = true;
+        m_background->setCurrentIndex(comboIndexOf(m_choice ? std::optional(m_choice->mode) : std::nullopt));
+        m_syncing = false;
         refreshSwatch();
         emit changed();
     });
@@ -324,10 +355,9 @@ void CanvasFieldsEditor::refreshReadouts() {
 }
 
 void CanvasFieldsEditor::refreshSwatch() {
-    const QColor c = m_model.background().color;
-    // The user's colour, so an inline sheet; its edge and corners are the theme's.
-    m_swatch->setStyleSheet(QStringLiteral("background:%1; border:%2px solid %3; border-radius:%4px;")
-                                .arg(c.name())
+    // The user's colours as an icon; the edge and corners are the theme's.
+    m_swatch->setIcon(QIcon(backgroundPreview(m_model.background(), m_swatch->iconSize())));
+    m_swatch->setStyleSheet(QStringLiteral("background:transparent; padding:0px; border:%1px solid %2; border-radius:%3px;")
                                 .arg(Theme::kBorder)
                                 .arg(Theme::color(Token::Border).name())
                                 .arg(Theme::kRadiusXs));

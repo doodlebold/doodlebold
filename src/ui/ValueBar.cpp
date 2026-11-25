@@ -36,6 +36,8 @@ ValueBar::ValueBar(QWidget* parent) : QWidget(parent) {
     setFocusPolicy(Qt::StrongFocus);
     setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
     setCursor(Qt::ArrowCursor);
+    // Right-click types a value; a menu from the bar or the panel behind it would only be in the way.
+    setContextMenuPolicy(Qt::PreventContextMenu);
 }
 
 void ValueBar::setLook(Look look) {
@@ -308,6 +310,9 @@ void ValueBar::editValue() {
         m_editor->setObjectName(QStringLiteral("valueEditor"));
         m_editor->setAlignment(Qt::AlignRight);
         m_editor->setFrame(false);
+        // Windows sends the context menu at the right button's release, by when this editor, opened at the press, is under the
+        // pointer: its Undo/Copy/Paste menu would open over the value being typed.
+        m_editor->setContextMenuPolicy(Qt::PreventContextMenu);
         m_editor->installEventFilter(this);
     }
     const QRect field = m_look == Look::Bar ? rect().adjusted(1, 1, -1, -1) : QRect(0, 0, width(), height() - kTrackHeight);

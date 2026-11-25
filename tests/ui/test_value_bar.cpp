@@ -1,8 +1,10 @@
 #include "ui/ValueBar.h"
 
 #include <QApplication>
+#include <QContextMenuEvent>
 #include <QKeyEvent>
 #include <QLineEdit>
+#include <QMenu>
 #include <QMouseEvent>
 #include <QWheelEvent>
 
@@ -169,4 +171,26 @@ TEST(ValueBar, SnapKeepsValuesOnAGridFromTheMinimum) {
     odd.setSnap(4);
     odd.setValue(10);
     EXPECT_EQ(odd.value(), 11) << "the grid starts at the minimum: 3, 7, 11, 15, 19";
+}
+
+// Windows sends the context menu at the right button's release, to the editor the press opened under the pointer.
+TEST(ValueBar, RightClickOpensNoMenu) {
+    ValueBar bar;
+    bar.setRange(0, 100);
+    bar.resize(120, 18);
+    bar.show();
+    mouse(&bar, QEvent::MouseButtonPress, 30, Qt::RightButton);
+    auto* editor = bar.findChild<QLineEdit*>(QStringLiteral("valueEditor"));
+    ASSERT_NE(editor, nullptr);
+    for (QWidget* target : {static_cast<QWidget*>(editor), static_cast<QWidget*>(&bar)}) {
+        const QPoint at(30, 9);
+        QContextMenuEvent menu(QContextMenuEvent::Mouse, at, target->mapToGlobal(at));
+        QCoreApplication::sendEvent(target, &menu);
+        for (QWidget* window : QApplication::topLevelWidgets())
+            if (qobject_cast<QMenu*>(window) && window->isVisible()) {
+                ADD_FAILURE() << "a menu opened over " << target->objectName().toStdString();
+                window->close();
+            }
+    }
+    EXPECT_TRUE(bar.isEditing());
 }
