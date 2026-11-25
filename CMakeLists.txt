@@ -1,5 +1,6 @@
 cmake_minimum_required(VERSION 3.21)
-project(Doodlebold VERSION 1.0.0 DESCRIPTION "Doodlebold painting application" LANGUAGES C CXX)
+include(cmake/Version.cmake)
+project(Doodlebold VERSION ${DOODLEBOLD_VERSION_NUMBER} DESCRIPTION "Doodlebold painting application" LANGUAGES C CXX)
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)

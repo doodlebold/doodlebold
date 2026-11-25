@@ -53,7 +53,7 @@ body:
     attributes:
       label: Doodlebold version
       description: Help > Report a Bug fills this in for you.
-      placeholder: "1.0.0"
+      placeholder: "1.2.0 (abc1234)"
     validations:
       required: true
   - type: input

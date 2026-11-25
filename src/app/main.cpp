@@ -1,6 +1,7 @@
 #include "core/io/PluginLoader.h"
 #include "core/options/AppOptions.h"
 #include "core/util/AppIdentity.h"
+#include "core/util/BuildInfo.h"
 #include "platform/CrashReport.h"
 #include "platform/Platform.h"
 #include "ui/GlassPopups.h"
@@ -21,7 +22,8 @@ int main(int argc, char* argv[]) {
     QApplication app(argc, argv);
     doodlebold::app_identity::apply();
     QApplication::setApplicationDisplayName(QStringLiteral("Doodlebold"));
-    QApplication::setApplicationVersion(QStringLiteral(DOODLEBOLD_VERSION));
+    // The commit too, so About, bug reports and tablet reports name the exact build.
+    QApplication::setApplicationVersion(doodlebold::build_info::versionText());
     QApplication::setDesktopFileName(QStringLiteral("doodlebold"));
     doodlebold::crash_report::install();  // once the version and the app's data folder are known
 

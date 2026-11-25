@@ -65,6 +65,7 @@ add_executable(doodlebold_unit_tests
   unit/test_jpeg_preview.cpp
   unit/test_timelapse.cpp
   unit/test_project_links.cpp
+  unit/test_build_info.cpp
   unit/test_effects.cpp
   unit/IoTestSupport.h
   unit/FfmpegTestSupport.h
