@@ -381,7 +381,7 @@ TEST(NewCanvasDialogTest, TheSwatchShowsWhatTheCanvasWillShow) {
     EXPECT_GE(overWhite.size(), 3u) << "the checkerboard beside the white, unlike opaque White";
 }
 
-TEST(NewCanvasDialogTest, PlusRegistersAPresetAndTheWrenchEditsTheList) {
+TEST(NewCanvasDialogTest, PlusRegistersAPresetAndTheGearEditsTheList) {
     NewCanvasValues v;
     v.pixels = QSize(1000, 700);
     NewCanvasDialog dlg(QStringLiteral("NewCanvas1"), v, defaultCanvasPresets());

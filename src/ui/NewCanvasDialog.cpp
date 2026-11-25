@@ -24,6 +24,7 @@
 #include <QStyledItemDelegate>
 #include <QToolButton>
 #include <QVBoxLayout>
+#include <algorithm>
 #include <utility>
 
 namespace doodlebold {
@@ -89,23 +90,24 @@ QString presetLabel(const CanvasPreset& p) {
 constexpr int kSwatchWidth = 40;  // px: the background swatch's width beside its select box (component metric)
 constexpr int kSwatchChecker = 5;  // px: a square of the swatch's checkerboard, so a 40 × 28 swatch shows a few (component metric)
 
-// What the canvas shows behind its layers. A transparent mode over a flat colour shows the checkerboard and that colour split
-// across the diagonal, so it doesn't look like the opaque mode of the same colour.
-QPixmap backgroundPreview(const CanvasBackground& background, QSize size) {
-    QPixmap pixmap(size);
+// What the canvas shows behind its layers. A transparent mode over a flat colour shows that colour on its left half and
+// checkerboard on its right, so it doesn't look like the opaque mode of the same colour. Drawn in the screen's own pixels: one made at
+// `size` and stretched to a 125 % screen blurs the checkerboard.
+QPixmap backgroundPreview(const CanvasBackground& background, QSize size, qreal pixelRatio) {
+    const QRect area(QPoint(0, 0), (QSizeF(size) * pixelRatio).toSize());
+    const int cell = std::max(1, qRound(kSwatchChecker * pixelRatio));
+    QPixmap pixmap(area.size());
     QPainter p(&pixmap);
-    const QRect area(QPoint(0, 0), size);
     const Backdrop backdrop = background.backdrop();
     if (backdrop.square > 0) {
-        components::paintChecker(p, area, kSwatchChecker, backdrop.a, backdrop.b);
-    } else if (background.isTransparent()) {
-        components::paintChecker(p, area, kSwatchChecker, Theme::kCheckerLight, Theme::kCheckerDark);
-        p.setPen(Qt::NoPen);
-        p.setBrush(QColor::fromRgb(backdrop.a));
-        p.drawPolygon(QPolygon({area.topRight(), area.bottomRight() + QPoint(1, 1), area.bottomLeft() + QPoint(0, 1)}));
+        components::paintChecker(p, area, cell, backdrop.a, backdrop.b);
     } else {
         p.fillRect(area, QColor::fromRgb(backdrop.a));
+        if (background.isTransparent())
+            components::paintChecker(p, area.adjusted(area.width() / 2, 0, 0, 0), cell, Theme::kCheckerLight, Theme::kCheckerDark);
     }
+    p.end();
+    pixmap.setDevicePixelRatio(pixelRatio);
     return pixmap;
 }
 
@@ -356,7 +358,7 @@ void CanvasFieldsEditor::refreshReadouts() {
 
 void CanvasFieldsEditor::refreshSwatch() {
     // The user's colours as an icon; the edge and corners are the theme's.
-    m_swatch->setIcon(QIcon(backgroundPreview(m_model.background(), m_swatch->iconSize())));
+    m_swatch->setIcon(QIcon(backgroundPreview(m_model.background(), m_swatch->iconSize(), m_swatch->devicePixelRatioF())));
     m_swatch->setStyleSheet(QStringLiteral("background:transparent; padding:0px; border:%1px solid %2; border-radius:%3px;")
                                 .arg(Theme::kBorder)
                                 .arg(Theme::color(Token::Border).name())
@@ -392,12 +394,14 @@ NewCanvasDialog::NewCanvasDialog(const QString& fileName, const NewCanvasValues&
     m_presetCombo->setObjectName(QStringLiteral("presetCombo"));
     m_configure = new QToolButton(this);
     m_configure->setObjectName(QStringLiteral("presetConfigureButton"));
-    m_configure->setIcon(QIcon(QStringLiteral(":/icons/wrench.svg")));
+    m_configure->setIcon(QIcon(QStringLiteral(":/icons/gear.svg")));
     m_configure->setToolTip(tr("Configure Canvas Presets"));
     m_register = new QToolButton(this);
     m_register->setObjectName(QStringLiteral("presetRegisterButton"));
     m_register->setIcon(QIcon(QStringLiteral(":/icons/plus.svg")));
     m_register->setToolTip(tr("Register New Canvas Preset"));
+    for (QToolButton* b : {m_configure, m_register})
+        components::toolButton(b);
     auto* presetRow = new QHBoxLayout;
     presetRow->addWidget(m_presetCombo, 1);
     presetRow->addWidget(m_configure);

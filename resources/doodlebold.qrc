@@ -71,7 +71,7 @@
     <file>icons/preset-new.svg</file>
     <file>icons/preset-separator.svg</file>
     <file>icons/preset-edit.svg</file>
-    <file>icons/wrench.svg</file>
+    <file>icons/gear.svg</file>
     <file>icons/plus.svg</file>
     <file>theme/doodlebold-dark.qss</file>
     <file alias="THIRD-PARTY-NOTICES.txt">../THIRD-PARTY-NOTICES.txt</file>
