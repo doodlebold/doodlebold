@@ -86,6 +86,7 @@ public slots:
     void openFiles(const QStringList& paths);
     void showTabletDiagnostics();
     void showAbout();
+    void showCrashReport(const QString& report, bool afterCrash);
 
 protected:
     void closeEvent(QCloseEvent* e) override;

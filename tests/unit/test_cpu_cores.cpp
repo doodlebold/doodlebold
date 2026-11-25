@@ -96,6 +96,26 @@ TEST(CpuCores, WorkerPoolSizeFollowsTheLimit) {
     EXPECT_EQ(WorkerPool().size(), cpu_cores::available());
 }
 
+TEST(CpuCores, AStrokeLeavesTheInterfaceACoreFromThreeCoresUp) {
+    EXPECT_EQ(cpu_cores::forStrokes(16, 16), 15);
+    EXPECT_EQ(cpu_cores::forStrokes(4, 4), 3);
+    EXPECT_EQ(cpu_cores::forStrokes(3, 3), 2);
+    EXPECT_EQ(cpu_cores::forStrokes(2, 2), 2) << "two cores both paint, as before";
+    EXPECT_EQ(cpu_cores::forStrokes(1, 1), 1);
+}
+
+TEST(CpuCores, AStrokeKeepsToALowerLimit) {
+    EXPECT_EQ(cpu_cores::forStrokes(16, 4), 4) << "a limit under the machine's cores already leaves the interface some";
+    EXPECT_EQ(cpu_cores::forStrokes(16, 1), 1);
+    EXPECT_EQ(cpu_cores::forStrokes(2, 1), 1);
+}
+
+TEST(WorkerPool, TheStrokesPoolLeavesTheInterfaceACore) {
+    LimitGuard guard;
+    cpu_cores::setLimit(0);  // before the pool is made: it's made once, with the limit of the moment
+    EXPECT_EQ(WorkerPool::forStrokes().size(), std::max(1, cpu_cores::forStrokes(cpu_cores::available(), cpu_cores::available())));
+}
+
 TEST(WorkerPool, NestedAndConcurrentRunsComplete) {
     WorkerPool pool(4);
     std::atomic<int> total{0};

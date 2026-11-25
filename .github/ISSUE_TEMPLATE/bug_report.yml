@@ -69,6 +69,12 @@ body:
       description: Leave empty if you use a mouse. For pen problems, paste the report from Help > Tablet Diagnostics > Copy below.
       placeholder: Wacom Intuos S Pen
   - type: textarea
+    id: crash
+    attributes:
+      label: Crash report
+      description: After a crash, Doodlebold shows its crash report when it starts again (later, Help > Crash Report). Press Copy report and paste it here.
+      render: text
+  - type: textarea
     id: log
     attributes:
       label: Terminal output

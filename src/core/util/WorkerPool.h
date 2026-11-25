@@ -30,8 +30,8 @@ public:
     void run(int n, const std::function<void(int)>& job);
 
     static WorkerPool& shared();
-    // For painting a stroke, which can run at the same time as a frame is being composited on shared(). It paints on every core, as the
-    // reference does, its workers giving way to the interface.
+    // For painting a stroke, which can run at the same time as a frame is being composited on shared(). It paints on every core but the
+    // interface's (cpu_cores::forStrokes; on two cores or fewer, on all of them), its workers giving way to the interface.
     static WorkerPool& forStrokes();
 
 private:

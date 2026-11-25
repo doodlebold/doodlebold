@@ -14,7 +14,9 @@
 #include <cmath>
 #include <cstdint>
 #include <deque>
+#include <map>
 #include <optional>
+#include <tuple>
 #include <unordered_map>
 #include <memory>
 #include <utility>
@@ -446,6 +448,9 @@ private:
     bool m_firstTwice = false;  // with penLaysFirstTwice, a pen's stroke, whose first walked stamp isn't laid yet
     std::vector<Stamp> m_placed;  // not handed out yet
     std::unordered_map<std::uint64_t, double> m_opacities;  // solved already, by rounded radius and target
+    // Kept with the walk, not thread_local: MinGW's emulated TLS frees a thread's storage before its thread_local destructors run
+    // (GCC bug 80816), which corrupted the heap as a stroke's thread ended.
+    std::map<std::tuple<int, double, std::int64_t>, double> m_brushDabOpacities;
 };
 
 // Lays a stroke's stamps into its buffer. A soft stamp is held back until the stamps after it are known, because each one is

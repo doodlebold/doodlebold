@@ -181,3 +181,26 @@ TEST(CanvasBackgroundStroke, SettlingEveryCanvasFinishesTheStrokeStillPainting) 
     EXPECT_FALSE(rig.canvas.isStrokeFinishing());
     EXPECT_EQ(rig.doc.undoStack()->count(), steps + 1);
 }
+
+// Windows Ink can keep a pen-up for its own gestures (press and hold), so the canvas next hears the pen hovering, nothing pressed.
+TEST(CanvasBackgroundStroke, AMoveWithNothingPressedEndsAStrokeWhoseReleaseWasLost) {
+    Rig rig;
+    const int steps = rig.doc.undoStack()->count();
+    const auto hover = [&](const QPointF& docPos) {
+        const QPointF at = ViewNavigator(rig.doc.view(), QSizeF(rig.canvas.size()), QSizeF(rig.doc.size())).docToWidget().map(docPos);
+        QTabletEvent event(QEvent::TabletMove, QPointingDevice::primaryPointingDevice(), at, at, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
+                           Qt::NoModifier, Qt::NoButton, Qt::NoButton);
+        QCoreApplication::sendEvent(&rig.canvas, &event);
+    };
+    rig.pen(QEvent::TabletPress, QPointF(60, 100), 0.5);
+    for (int i = 1; i <= 20; ++i)
+        rig.pen(QEvent::TabletMove, QPointF(60 + i * 12.0, 100), 0.7);
+    hover(QPointF(400, 200));
+    EXPECT_FALSE(rig.canvas.isPainting()) << "the stroke ended without its release";
+    rig.canvas.settleStroke();
+    EXPECT_EQ(rig.doc.undoStack()->count(), steps + 1);
+    const QImage ended = rig.doc.projection().copy();
+    hover(QPointF(500, 250));
+    rig.canvas.settleStroke();
+    EXPECT_EQ(rig.doc.projection(), ended) << "hovering after it paints nothing";
+}

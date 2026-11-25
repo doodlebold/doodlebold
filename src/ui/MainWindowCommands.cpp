@@ -6,6 +6,7 @@
 #include "core/tools/ToolBox.h"
 #include "core/util/ProjectLinks.h"
 #include "core/view/ViewText.h"
+#include "platform/CrashReport.h"
 #include "ui/CanvasView.h"
 #include "ui/DocumentTabs.h"
 #include "ui/FileController.h"
@@ -597,6 +598,7 @@ void MainWindow::registerOtherCommands() {
     bind("other.tabletDiagnostics", [this] { showTabletDiagnostics(); }, Enable::Always);
     bind("other.aboutDoodlebold", [this] { showAbout(); }, Enable::Always);
     bind("other.reportBug", [] { links::open(links::bugReportUrl(links::systemFacts())); }, Enable::Always);
+    bind("other.crashReport", [this] { showCrashReport(crash_report::lastReport(), false); }, Enable::Always);
 }
 
 void MainWindow::registerKeyCommands() {

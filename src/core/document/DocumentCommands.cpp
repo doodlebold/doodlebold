@@ -45,4 +45,17 @@ void TileEditCommand::redo() {
     m_doc->restoreTiles(m_layer, m_after);
 }
 
+std::int64_t TileEditCommand::heldBytes() const {
+    std::int64_t tiles = 0;
+    for (const auto& [coord, tile] : m_before)
+        tiles += tile ? 1 : 0;
+    return tiles * static_cast<std::int64_t>(sizeof(Tile));
+}
+
+void TileEditCommand::letPixelsGo() {
+    m_before = {};
+    m_after = {};
+    m_letGo = true;
+}
+
 }

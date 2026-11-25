@@ -113,7 +113,7 @@ WorkerPool& WorkerPool::shared() {
 }
 
 WorkerPool& WorkerPool::forStrokes() {
-    static WorkerPool pool(std::max(1, cpu_cores::used()), Priority::GivesWay);
+    static WorkerPool pool(std::max(1, cpu_cores::forStrokes()), Priority::GivesWay);
     return pool;
 }
 

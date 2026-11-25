@@ -16,6 +16,7 @@ workflows in `.github/workflows/` and every operating system run the same comman
 | Look for data races (by hand only) | `cmake --workflow --preset linux-thread-sanitizer` | |
 | Build an RPM and install it | `cmake --workflow --preset fedora-rpm`, then `sudo dnf install build-linux-release/*.rpm` | |
 | Build the Windows zip on Windows | `cmake --workflow --preset windows-zip` (a Developer prompt, `VCPKG_ROOT` set) | |
+| Build and test on Windows without Visual Studio | `cmake --workflow --preset windows-mingw` (an MSYS2 MINGW64 shell with its gcc, cmake, ninja, qt6-base, qt6-svg, gtest and libjpeg-turbo packages) | |
 | Build the Windows zip on Linux | `cmake --workflow --preset windows-mingw-zip` (Fedora's mingw64 packages, or a `fedora:44` container) | 1.5 minutes |
 | See whether a change made painting faster | `tools/compare_brush_speed.py` | 1 minute, plus building |
 | Check formatting, clang-tidy and every warning | `cmake --workflow --preset lint` | 4 minutes after a build |

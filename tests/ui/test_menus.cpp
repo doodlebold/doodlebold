@@ -129,7 +129,7 @@ TEST_F(MenuTest, TheMenusHoldExactlyWhatDoodleboldImplements) {
     EXPECT_EQ(labels(menu("View")),
               (QStringList{"Zoom In", "Zoom Out", "Actual Size", "Fit to Window", "---", "Rotate Left", "Rotate Right", "Reset Rotation",
                            "Flip View", "---", "Reset View", "---", "Close View", "Close All Views"}));
-    EXPECT_EQ(labels(menu("Help")), (QStringList{"Tablet Diagnostics…", "Report a Bug…", "---", "About Doodlebold…"}));
+    EXPECT_EQ(labels(menu("Help")), (QStringList{"Tablet Diagnostics…", "Report a Bug…", "Crash Report…", "---", "About Doodlebold…"}));
     const QAction* timelapse = window->findChild<QAction*>(QStringLiteral("file.timelapse"));
     ASSERT_TRUE(timelapse && timelapse->menu());
     EXPECT_EQ(labels(timelapse->menu()), (QStringList{"Record Timelapse", "Replay", "---", "Restart Recording…", "Delete Recording…"}));

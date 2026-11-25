@@ -259,6 +259,7 @@ private:
     void showStrokePaint();
     void continueStroke(const InputSample& s);
     void endStroke();
+    void endPenPress(const InputSample& s, const QTabletEvent& e);
     void notePaintedColour(bool painted);
     void moveHeldShape(const InputSample& s);
     void repaintShape();

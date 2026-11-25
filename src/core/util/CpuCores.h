@@ -50,4 +50,17 @@ inline void setLimit(int cores) {
     limit().store(cores);
 }
 
+// The cores kept for the interface while a stroke paints, so the window, the cursor and the pen's events never wait for a core.
+constexpr int kInterfaceCores = 1;
+// Fewer cores than this all paint: on two, keeping one for the interface would halve the painting.
+constexpr int kLeastCoresToKeepOne = 3;
+
+inline int forStrokes(int available, int used) {
+    return available >= kLeastCoresToKeepOne ? std::min(used, available - kInterfaceCores) : used;
+}
+
+inline int forStrokes() {
+    return forStrokes(available(), used());
+}
+
 }

@@ -7,6 +7,7 @@
 #include "core/document/SelectionEdits.h"
 #include "core/document/TransformEdits.h"
 #include "core/layers/Compositor.h"
+#include "core/paint/StrokeMemory.h"
 #include "core/timelapse/TimelapseRecorder.h"
 
 #include <QFileInfo>
@@ -196,7 +197,42 @@ void Document::pushUndo(QUndoCommand* command) {
     m_undo.push(command);
     m_pushing = false;
     m_undoIndex = m_undo.index();
+    keepUndoWithinMemory();
     recordStep(TimelapseStep::Kind::Edit);
+}
+
+// The step just pushed is always kept, so one step can still be undone.
+void Document::keepUndoWithinMemory() {
+    const std::int64_t allowed = stroke_memory::allowedBytes();
+    if (allowed <= 0)
+        return;  // the machine can't say: only the step limit holds
+    const auto budget = static_cast<std::int64_t>(static_cast<double>(allowed) * kUndoMemoryShare);
+    std::vector<TileEditCommand*> held;
+    std::int64_t bytes = 0;
+    for (int i = 0; i + 1 < m_undo.count(); ++i)
+        if (auto* step = dynamic_cast<TileEditCommand*>(const_cast<QUndoCommand*>(m_undo.command(i))); step && !step->pixelsLetGo()) {
+            held.push_back(step);
+            bytes += step->heldBytes();
+        }
+    if (const auto* last = dynamic_cast<const TileEditCommand*>(m_undo.command(m_undo.count() - 1)))
+        bytes += last->heldBytes();
+    bool freed = false;
+    for (TileEditCommand* step : held) {
+        if (bytes <= budget)
+            break;
+        bytes -= step->heldBytes();
+        step->letPixelsGo();
+        freed = true;
+    }
+    if (freed)
+        stroke_memory::giveBackFreedSoon();
+}
+
+// Only the step below the current one is looked at: steps are let go from the oldest, so every step under a let-go one is too.
+bool Document::undoLetGo() const {
+    const int index = m_undo.index();
+    const auto* step = index > 0 ? dynamic_cast<const TileEditCommand*>(m_undo.command(index - 1)) : nullptr;
+    return step && step->pixelsLetGo();
 }
 
 DocumentContent Document::content() const {
@@ -264,6 +300,8 @@ void Document::setMaskTarget(bool mask) {
 EditResult<> Document::undo() {
     if (m_painting)
         return EditResult<>::failure(EditError::StrokeInProgress);
+    if (undoLetGo())
+        return EditResult<>::failure(EditError::UndoLetGo);
     m_undo.undo();
     return {};
 }

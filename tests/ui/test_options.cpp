@@ -263,7 +263,7 @@ TEST_F(OptionsTest, OptionsAreKeptInQSettingsAndClamped) {
     EXPECT_EQ(options.values().minimumPressure, 0);
     EXPECT_TRUE(options.values().frostedMenus);
     EXPECT_EQ(options.values().zoomedOut, AppOptions::ZoomedOut::ByGraphics) << "until the user picks";
-    EXPECT_EQ(options.values().undoSteps, 100) << "as fixed before";
+    EXPECT_EQ(options.values().undoSteps, 25);
     EXPECT_TRUE(options.values().brushOutline);
     EXPECT_FALSE(options.values().strokeTiming);
     EXPECT_FALSE(options.values().fitOnResetPosition);

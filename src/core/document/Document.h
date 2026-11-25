@@ -6,6 +6,7 @@
 #include "core/document/EditError.h"
 #include "core/document/Projection.h"
 #include "core/document/Clipboard.h"
+#include "core/options/AppOptions.h"
 #include "core/selection/SelectionOps.h"
 #include "core/transform/Resample.h"
 #include "core/view/ViewState.h"
@@ -31,7 +32,14 @@ class Document;
 class Document : public QObject {
     Q_OBJECT
 public:
-    static constexpr int kUndoLimit = 100;  // the default undo depth
+    static constexpr int kUndoLimit = AppOptions::kDefaultUndoSteps;
+    // The share of the memory Doodlebold may use (Options › Performance › Memory) that the undo history's pixels may keep, past
+    // which the oldest steps' pixels are let go. Each stroke keeps a copy of every 64 × 64 tile it changes (32 KiB each), so a
+    // 1000 px brush painting over paint keeps 25 to 60 MB a step (47 MB measured on 2000 × 1500): the default 25 steps keep up
+    // to 1.5 GB, and the most, 1000, up to 60 GB. A quarter caps it at about 3.4 GB on a 16 GB machine (about 13.7 GB allowed) and
+    // 1.7 GB on an 8 GB one: the default stays under both, so it bites with more steps set or on a smaller machine (0.75 GB on
+    // 4 GB). Half was tried on paper and doesn't bite before 100 steps on 16 GB.
+    static constexpr double kUndoMemoryShare = 0.25;
     // The undo depth of canvases made or opened from now on: Options > Performance > Undo history. A canvas keeps the
     // depth it was made with, since its history can't be cut short.
     static void setUndoSteps(int steps);
@@ -303,6 +311,8 @@ private:
     void installState(DocumentState s);
     void invalidate(const QRect& rect);
     void pushUndo(QUndoCommand* command);
+    void keepUndoWithinMemory();
+    bool undoLetGo() const;
     void syncFrameTimer();
     void rebuildUnderlay();
     EditResult<ClipboardImage> copyWith(LayerId id, const SelectionMask& area) const;

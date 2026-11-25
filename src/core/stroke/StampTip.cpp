@@ -559,13 +559,12 @@ double StampWalk::opacityAt(const Place& place, double drawn) {
         const double power = kWaterShapePressurePower[static_cast<std::size_t>(std::clamp(m_tip.brushDabRow, 0, 4))];
         const double linear = m_tip.brushDabLinear ? m_tip.brushDabScale * std::pow(densityShare, power) : 1.0;
         const auto steps = static_cast<std::int64_t>(std::lround(targetShare * kBrushTargetSteps));
-        static thread_local std::map<std::tuple<int, double, std::int64_t>, double> solved;
         const auto key = std::make_tuple(m_tip.brushDabRow, m_tip.spacingShare, steps);
-        auto found = solved.find(key);
-        if (found == solved.end())
-            found =
-                solved.emplace(key, brushDabOpacity(m_tip.brushDabRow, m_tip.spacingShare, static_cast<double>(steps) / kBrushTargetSteps))
-                    .first;
+        auto found = m_brushDabOpacities.find(key);
+        if (found == m_brushDabOpacities.end())
+            found = m_brushDabOpacities
+                        .emplace(key, brushDabOpacity(m_tip.brushDabRow, m_tip.spacingShare, static_cast<double>(steps) / kBrushTargetSteps))
+                        .first;
         return m_tip.brushDabLinear ? std::min(1.0, found->second * linear) : found->second;
     }
     if (m_tip.hard)
@@ -1794,8 +1793,8 @@ void StampLayer::layDirectBatch(std::size_t first, std::size_t end) {
             std::array<std::size_t, 2 * kMostSkirtNeighbours> crossing{};
             int count = 0;
         };
-        thread_local std::vector<NeighbourPlan> plans;
-        plans.assign(w.edges.size(), NeighbourPlan{});
+        // Not thread_local, as no object with a destructor may be (m_brushDabOpacities says why); one allocation a tile.
+        std::vector<NeighbourPlan> plans(w.edges.size());
         {
             const QRect tileRect = w.coord.pixelRect();
             const auto around = static_cast<std::size_t>(m_tip.skirtNeighbours);

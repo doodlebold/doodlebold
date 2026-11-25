@@ -30,6 +30,10 @@ public:
     TileEditCommand(Document* doc, LayerId layer, TileMap before, TileMap after, const QString& text);
     void undo() override;
     void redo() override;
+    // Only the tiles it puts back: its after tiles are the layer's own, or the next step's before, and would be counted twice.
+    std::int64_t heldBytes() const;
+    void letPixelsGo();
+    bool pixelsLetGo() const { return m_letGo; }
 
 private:
     Document* m_doc;
@@ -37,6 +41,7 @@ private:
     TileMap m_before;
     TileMap m_after;
     bool m_firstRedo = true;
+    bool m_letGo = false;
 };
 
 }
