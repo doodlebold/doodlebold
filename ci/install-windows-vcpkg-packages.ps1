@@ -2,5 +2,6 @@
 $ErrorActionPreference = 'Stop'
 $PSNativeCommandUseErrorActionPreference = $true
 
-vcpkg install gtest libjpeg-turbo --triplet x64-windows
+# By its path: in the Visual Studio environment, `vcpkg` on the PATH is Visual Studio's own.
+& "$env:VCPKG_INSTALLATION_ROOT\vcpkg.exe" install gtest libjpeg-turbo --triplet x64-windows
 "VCPKG_ROOT=$env:VCPKG_INSTALLATION_ROOT" >> $env:GITHUB_ENV
