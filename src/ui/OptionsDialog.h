@@ -67,6 +67,7 @@ private:
     QCheckBox* m_fitOnReset = nullptr;
     QCheckBox* m_swapWheel = nullptr;
     QCheckBox* m_wheelAtCentre = nullptr;
+    QCheckBox* m_checkForUpdates = nullptr;
     QCheckBox* m_recordNewCanvases = nullptr;
     QCheckBox* m_quickShapes = nullptr;
     QDoubleSpinBox* m_quickShapeHold = nullptr;

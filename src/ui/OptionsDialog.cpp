@@ -123,6 +123,7 @@ OptionsDialog::OptionsDialog(const AppOptions::Values& initial, QWidget* parent)
     m_fitOnReset->setChecked(v.fitOnResetPosition);
     m_swapWheel->setChecked(v.swapWheelZoom);
     m_wheelAtCentre->setChecked(v.wheelZoomAtCentre);
+    m_checkForUpdates->setChecked(v.checkForUpdatesAtStart);
     m_recordNewCanvases->setChecked(v.recordNewCanvases);
     m_quickShapes->setChecked(v.quickShapes);
     m_quickShapeHold->setValue(v.quickShapeHoldMs / 1000.0);
@@ -316,6 +317,11 @@ QWidget* OptionsDialog::preferencePage() {
     layout->addWidget(m_fitOnReset);
     layout->addWidget(m_swapWheel);
     layout->addWidget(m_wheelAtCentre);
+    layout = addSection(page, tr("Updates"));
+    m_checkForUpdates = option(tr("Check for updates at start"), "checkForUpdatesCheck", true);
+    layout->addWidget(m_checkForUpdates);
+    layout->addWidget(help(tr("Once a day at most, Doodlebold asks GitHub for its latest release and tells you if it is newer. "
+                              "Nothing is downloaded. Help > Check for Updates asks at any time.")));
     return pageOf(page);
 }
 
@@ -386,6 +392,7 @@ AppOptions::Values OptionsDialog::values() const {
     v.fitOnResetPosition = m_fitOnReset->isChecked();
     v.swapWheelZoom = m_swapWheel->isChecked();
     v.wheelZoomAtCentre = m_wheelAtCentre->isChecked();
+    v.checkForUpdatesAtStart = m_checkForUpdates->isChecked();
     v.recordNewCanvases = m_recordNewCanvases->isChecked();
     v.quickShapes = m_quickShapes->isChecked();
     v.quickShapeHoldMs = int(std::lround(m_quickShapeHold->value() * 1000.0));

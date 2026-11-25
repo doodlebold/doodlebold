@@ -134,6 +134,14 @@ after 1.2.0, not released. No build asks git anything. The commit comes from Git
 it, for example "Version 1.2.0 (abc1234)", and a local build shows the version alone. The version and commit also go into bug
 reports (Help > Report a Bug) and the tablet diagnostics report.
 
+The program checks for a newer release itself (`src/core/util/UpdateCheck.*`, `src/ui/UpdateNotice.*`): at start, at most once a
+day and unless Options > View turns it off, and from Help > Check for Updates. It asks GitHub's latest-release endpoint
+(`api.github.com/repos/<owner>/<repo>/releases/latest`, which leaves out drafts and pre-releases), compares the release's tag with
+the build's version part by part as numbers, and only tells the user, with a link to the release page. A `-dev` build counts as
+after the release it names, so "1.2.0-dev" is not told of 1.2.0, only of 1.2.1 and later. For the check to see a release, it must be
+published as a full release (not a pre-release) under its `vX.Y.Z` tag. The Windows zip needs Qt's `tls` plugins for HTTPS:
+windeployqt and `cmake/MinGWDeploy.cmake` put them beside the exe.
+
 To build a release by hand: `cmake --preset linux-release -DDOODLEBOLD_RELEASE_VERSION=v1.2.0`. The version is set at the
 first configure of a build folder; to change it, pass `-DDOODLEBOLD_RELEASE_VERSION=` again (empty for a `-dev` build).
 

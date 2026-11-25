@@ -47,6 +47,7 @@ class NavigatorPanel;
 class QuickBar;
 class ToastStack;
 class MemoryNotice;
+class UpdateNotice;
 class TabletStats;
 class ToolBox;
 class ToolBoxStore;
@@ -80,6 +81,9 @@ public:
     bool isReplaying() const { return !m_replayDoc.isNull(); }
 
     void setCanvasBackground(BackgroundMode mode);
+
+    // Once the window shows: unless Options › View turned it off, the once-a-day check that speaks only of a newer release.
+    void checkForUpdatesAtStart();
 
 public slots:
     void newDocument();
@@ -222,6 +226,7 @@ private:
     FileController* m_files = nullptr;
     AppOptions* m_options = nullptr;
     MemoryNotice* m_memoryNotice = nullptr;
+    UpdateNotice* m_updateNotice = nullptr;
     QHash<QString, Binding> m_bindings;
     QHash<QString, QAction*> m_actions;
     std::vector<QAction*> m_trayKeyActions;  // one for each tray tool with a key

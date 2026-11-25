@@ -62,6 +62,7 @@ AppOptions::Values everythingChanged() {
     v.quickShapeHoldMs = 1700;
     v.altPicksColour = false;
     v.ctrlMovesLayers = false;
+    v.checkForUpdatesAtStart = false;
     return v;
 }
 
@@ -135,6 +136,22 @@ TEST_F(OptionsTest, RecordNewCanvasesIsOffByDefaultAndLivesInTheTimelapsePage) {
     EXPECT_FALSE(dlg.values().recordNewCanvases);
     box->setChecked(true);
     EXPECT_TRUE(dlg.values().recordNewCanvases);
+}
+
+TEST_F(OptionsTest, CheckForUpdatesAtStartIsOnByDefaultAndLivesInTheViewPage) {
+    OptionsDialog dlg(AppOptions::Values{});
+    auto* box = find<QCheckBox>(&dlg, "checkForUpdatesCheck");
+    ASSERT_TRUE(box);
+    EXPECT_EQ(box->text(), QStringLiteral("Check for updates at start"));
+    EXPECT_TRUE(box->isChecked());
+    auto* pages = find<QListWidget>(&dlg, "optionsPages");
+    ASSERT_TRUE(pages);
+    pages->setCurrentItem(pages->findItems(QStringLiteral("View"), Qt::MatchExactly).value(0));
+    auto* stack = dlg.findChild<QStackedWidget*>();
+    ASSERT_TRUE(stack);
+    EXPECT_TRUE(stack->currentWidget()->isAncestorOf(box));
+    box->setChecked(false);
+    EXPECT_FALSE(dlg.values().checkForUpdatesAtStart);
 }
 
 TEST_F(OptionsTest, TheTimelapsePageHoldsOnlyRecordNewCanvases) {
@@ -217,6 +234,7 @@ TEST_F(OptionsTest, ValuesFollowTheControls) {
     EXPECT_EQ(v.quickShapeHoldMs, 1700);
     EXPECT_FALSE(v.altPicksColour);
     EXPECT_FALSE(v.ctrlMovesLayers);
+    EXPECT_FALSE(v.checkForUpdatesAtStart);
 
     find<QComboBox>(&dlg, "zoomedOutCombo")->setCurrentIndex(0);
     EXPECT_EQ(dlg.values().zoomedOut, AppOptions::ZoomedOut::Smooth);
@@ -270,6 +288,7 @@ TEST_F(OptionsTest, OptionsAreKeptInQSettingsAndClamped) {
     EXPECT_FALSE(options.values().swapWheelZoom);
     EXPECT_FALSE(options.values().wheelZoomAtCentre);
     EXPECT_FALSE(options.values().recordNewCanvases) << "timelapse recording is off unless the user turns it on";
+    EXPECT_TRUE(options.values().checkForUpdatesAtStart);
 
     int emitted = 0;
     QObject::connect(&options, &AppOptions::changed, [&] { ++emitted; });

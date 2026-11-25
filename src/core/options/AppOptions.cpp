@@ -32,6 +32,7 @@ constexpr const char* kPanKey = "options/panKey";
 constexpr const char* kCustomMemory = "options/customMemory";
 constexpr const char* kCustomMemoryGB = "options/customMemoryGB";
 constexpr const char* kKeepBrushesInMemory = "options/keepBrushesInMemory";
+constexpr const char* kCheckForUpdatesAtStart = "options/checkForUpdatesAtStart";
 constexpr double kBytesPerGB = 1024.0 * 1024.0 * 1024.0;
 constexpr double kLeastMemoryGB = 1.0;
 constexpr double kMemoryStepGB = 0.5;
@@ -154,6 +155,7 @@ AppOptions::AppOptions(QObject* parent) : QObject(parent) {
     v.customMemory = s.value(QLatin1String(kCustomMemory), v.customMemory).toBool();
     v.customMemoryGB = s.value(QLatin1String(kCustomMemoryGB), v.customMemoryGB).toDouble();
     v.keepBrushesInMemory = s.value(QLatin1String(kKeepBrushesInMemory), v.keepBrushesInMemory).toBool();
+    v.checkForUpdatesAtStart = s.value(QLatin1String(kCheckForUpdatesAtStart), v.checkForUpdatesAtStart).toBool();
     v.held.pan = s.value(QLatin1String(kPanKey), v.held.pan).toInt();
     for (const HeldModifierKey& f : kHeldModifiers)
         v.held.*f.member = modifierNamed(s.value(QLatin1String(f.key)).toString(), v.held.*f.member);
@@ -187,6 +189,7 @@ void AppOptions::setValues(const Values& values) {
     s.setValue(QLatin1String(kCustomMemory), v.customMemory);
     s.setValue(QLatin1String(kCustomMemoryGB), v.customMemoryGB);
     s.setValue(QLatin1String(kKeepBrushesInMemory), v.keepBrushesInMemory);
+    s.setValue(QLatin1String(kCheckForUpdatesAtStart), v.checkForUpdatesAtStart);
     s.setValue(QLatin1String(kPanKey), v.held.pan);
     for (const HeldModifierKey& f : kHeldModifiers)
         s.setValue(QLatin1String(f.key), modifierName(v.held.*f.member));

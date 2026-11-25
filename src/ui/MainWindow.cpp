@@ -28,6 +28,7 @@
 #include "ui/TabletDiagnosticsDialog.h"
 #include "ui/TabletInput.h"
 #include "ui/Theme.h"
+#include "ui/UpdateNotice.h"
 #include "core/color/ColorAssets.h"
 #include "core/color/ColorAssetsStore.h"
 #include "core/color/ColorState.h"
@@ -124,6 +125,7 @@ MainWindow::MainWindow(QWidget* parent)
     m_options = new AppOptions(this);
     connect(m_options, &AppOptions::changed, this, &MainWindow::applyOptions);
     buildMemoryNotice();
+    m_updateNotice = new UpdateNotice(this);
     buildPanels();
     buildTimeline();
     m_tabs->setOuterGap(outerGap());
@@ -591,6 +593,11 @@ void MainWindow::showOptions(bool atMemory) {
         applyKeyTable(dlg->keysPage()->table());
     });
     dlg->open();
+}
+
+void MainWindow::checkForUpdatesAtStart() {
+    if (m_options->values().checkForUpdatesAtStart)
+        m_updateNotice->checkAtStart();
 }
 
 void MainWindow::showTabletDiagnostics() {

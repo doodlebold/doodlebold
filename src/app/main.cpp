@@ -63,6 +63,7 @@ int main(int argc, char* argv[]) {
     if (const QString crashed = doodlebold::crash_report::takeNewReport(); !crashed.isEmpty())
         QTimer::singleShot(0, &window, [&window, crashed] { window.showCrashReport(crashed, true); });
     window.openFiles(QApplication::arguments().mid(1));
+    window.checkForUpdatesAtStart();
     const int status = QApplication::exec();
     doodlebold::crash_report::uninstall();
     return status;

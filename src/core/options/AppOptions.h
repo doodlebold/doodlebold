@@ -66,6 +66,7 @@ public:
         bool customMemory = false;
         double customMemoryGB = 0.0;  // 0 until one is set: the dialog starts it at Automatic's amount
         bool keepBrushesInMemory = true;
+        bool checkForUpdatesAtStart = true;  // at most once a day, Doodlebold asks GitHub whether a newer release exists
         bool operator==(const Values&) const = default;
     };
 
