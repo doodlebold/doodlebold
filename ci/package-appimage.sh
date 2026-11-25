@@ -18,7 +18,8 @@ curl -sSLf -o linuxdeploy "$LINUXDEPLOY_URL"
 curl -sSLf -o linuxdeploy-plugin-qt "$LINUXDEPLOY_QT_URL"
 chmod +x linuxdeploy linuxdeploy-plugin-qt
 
-version=$(sed -n 's/^project(Doodlebold VERSION \([0-9.]*\).*/\1/p' CMakeLists.txt)
+# From the build, not CMakeLists.txt: a release's version is its tag (cmake/Version.cmake).
+version=$(sed -n 's/^CMAKE_PROJECT_VERSION:STATIC=//p' build-linux-release/CMakeCache.txt)
 export LDAI_OUTPUT="Doodlebold-$version-x86_64.AppImage"
 cp "$ICON" AppDir/doodlebold.png  # appimagetool makes .DirIcon from it
 ./linuxdeploy --appdir AppDir --plugin qt --desktop-file AppDir/usr/share/applications/doodlebold.desktop \

@@ -119,6 +119,8 @@ add_library(doodlebold_core STATIC
   core/view/ViewText.cpp core/view/ViewText.h
   core/input/InputLog.cpp core/input/InputLog.h
   core/util/ProjectLinks.cpp core/util/ProjectLinks.h
+  core/util/BuildInfo.cpp core/util/BuildInfo.h
+  core/util/BuildInfoValues.cpp.in ${CMAKE_CURRENT_BINARY_DIR}/BuildInfoValues.cpp
   core/input/InputSample.h
   core/input/TabletStats.cpp core/input/TabletStats.h
 )
@@ -130,7 +132,14 @@ find_package(JPEG REQUIRED)
 find_package(Threads REQUIRED)
 target_link_libraries(doodlebold_core PUBLIC Qt6::Core Qt6::Gui Threads::Threads)
 target_link_libraries(doodlebold_core PRIVATE JPEG::JPEG doodlebold_miniz)
-target_compile_definitions(doodlebold_core PUBLIC DOODLEBOLD_VERSION="${PROJECT_VERSION}")
+# A target, not configure_file at configure, so the commit is the one built.
+add_custom_target(doodlebold_build_info
+  COMMAND ${CMAKE_COMMAND} -DGIT=${GIT_EXECUTABLE} -DSOURCE_DIR=${CMAKE_SOURCE_DIR} -DVERSION=${DOODLEBOLD_DISPLAY_VERSION}
+          -DIN=${CMAKE_CURRENT_SOURCE_DIR}/core/util/BuildInfoValues.cpp.in -DOUT=${CMAKE_CURRENT_BINARY_DIR}/BuildInfoValues.cpp
+          -P ${CMAKE_SOURCE_DIR}/cmake/WriteBuildInfo.cmake
+  BYPRODUCTS ${CMAKE_CURRENT_BINARY_DIR}/BuildInfoValues.cpp
+  VERBATIM)
+add_dependencies(doodlebold_core doodlebold_build_info)
 doodlebold_set_warnings(doodlebold_core)
 # The painting files use AVX2: only these files get the flag, so the rest of the program, main() among it, still starts on any
 # x86-64 processor and can say this one isn't supported (platform::processorIsSupported). -mavx2 alone, never -march=x86-64-v3 or

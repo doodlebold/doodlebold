@@ -119,6 +119,23 @@ They all install their dependencies through `.github/actions/setup/` and build t
 more than one command is a script in `ci/`, named for what it does, so the workflows read as the steps they take and each script
 can be run on its own. pr.yml and ci.yml are templates until the repository has a remote: their headers say what to do then.
 
+## Versions and releases
+
+A release takes its version from its GitHub tag. Publish a release on GitHub under a tag `vX.Y.Z` (or `X.Y.Z`), for example
+`v1.2.0`. release.yml passes the tag to every job as `DOODLEBOLD_RELEASE_VERSION`, and `cmake/Version.cmake` makes it the
+build's version: About shows "Version 1.2.0 (abc1234)", with the commit it was built from, and the zip, RPM and AppImage are
+named for it. Nothing in the repository needs changing for a release. A tag in any other form, such as `v1.2.0-beta` (an RPM
+version can't hold a `-`), stops every job at configure with a message, before anything is packaged.
+
+Any other build names the last release tag git can see with `-dev` after it, for example "Version 1.2.0-dev (abc1234)": work
+after 1.2.0, not released. Without a tag (CI's shallow checkouts have none) it is `1.0.0-dev`. The commit is read at every
+build (`cmake/WriteBuildInfo.cmake`), so it is the one built, not the one at the last configure; without git, from
+`GITHUB_SHA`; with neither, About shows the version alone. The version and commit also go into bug reports (Help > Report a
+Bug) and the tablet diagnostics report.
+
+To build a release by hand: `cmake --preset linux-release -DDOODLEBOLD_RELEASE_VERSION=v1.2.0`. The version is set at the
+first configure of a build folder; to change it, pass `-DDOODLEBOLD_RELEASE_VERSION=` again (empty for a `-dev` build).
+
 ## Other tools
 
 | Tool | What it does |

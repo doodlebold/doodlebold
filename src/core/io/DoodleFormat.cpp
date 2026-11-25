@@ -3,6 +3,7 @@
 #include "core/animation/AnimationOps.h"
 #include "core/io/ByteIO.h"
 #include "core/timelapse/TimelapseFile.h"
+#include "core/util/BuildInfo.h"
 #include "core/util/ParallelFor.h"
 
 #include <QJsonArray>
@@ -454,7 +455,7 @@ QJsonObject animationToJson(const Animation& a) {
 QByteArray manifest(const DocumentContent& c) {
     const DocumentState& s = c.state;
     QJsonObject root;
-    root[QLatin1String("application")] = QStringLiteral("Doodlebold %1").arg(QStringLiteral(DOODLEBOLD_VERSION));
+    root[QLatin1String("application")] = QStringLiteral("Doodlebold %1").arg(build_info::version());
     root[QLatin1String("width")] = s.layers.size().width();
     root[QLatin1String("height")] = s.layers.size().height();
     const CanvasBackground& bg = s.background;

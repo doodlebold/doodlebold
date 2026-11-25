@@ -1,6 +1,7 @@
 #include "ScreenshotSupport.h"
 #include "core/options/AppOptions.h"
 #include "core/tools/ToolBoxStore.h"
+#include "core/util/BuildInfo.h"
 #include "core/util/ProjectLinks.h"
 #include "ui/AboutDialog.h"
 #include "ui/MainWindow.h"
@@ -31,7 +32,8 @@ protected:
         QStandardPaths::setTestModeEnabled(true);
         QSettings::setPath(QSettings::IniFormat, QSettings::UserScope, settingsDir.path());
         test::applyTheme();
-        QCoreApplication::setApplicationVersion(QStringLiteral("1.2.3"));
+        // In main()'s form, so the tests see the text people see.
+        QCoreApplication::setApplicationVersion(build_info::versionText(QStringLiteral("1.2.3"), QStringLiteral("abc1234")));
         links::setOpener([this](const QUrl& url) {
             opened << url;
             return true;
@@ -59,7 +61,7 @@ TEST_F(AboutTest, DialogShowsVersionAuthorLicenceAndQt) {
     AboutDialog dialog;
     const QStringList text = texts(dialog);
     EXPECT_TRUE(text.contains(QStringLiteral("Doodlebold")));
-    EXPECT_TRUE(text.contains(QStringLiteral("Version 1.2.3")));
+    EXPECT_TRUE(text.contains(QStringLiteral("Version 1.2.3 (abc1234)")));
     EXPECT_TRUE(text.contains(QStringLiteral("doodlebold")));
     EXPECT_TRUE(text.contains(QStringLiteral("MIT")));
     EXPECT_TRUE(text.contains(QStringLiteral("Built with Qt %1 (LGPLv3)").arg(QString::fromLatin1(qVersion()))));
@@ -177,6 +179,7 @@ TEST_F(AboutTest, MenuEntriesOpenTheDialogAndTheBugReport) {
     const QUrlQuery query(opened.first());
     EXPECT_EQ(opened.first().path(), QStringLiteral("/doodlebold/DoodleBold/issues/new"));
     EXPECT_EQ(query.queryItemValue(QStringLiteral("template")), QStringLiteral("bug_report.yml"));
-    EXPECT_EQ(query.queryItemValue(QStringLiteral("version")), QStringLiteral("1.2.3"));
+    EXPECT_EQ(query.queryItemValue(QStringLiteral("version"), QUrl::FullyDecoded), QStringLiteral("1.2.3 (abc1234)"))
+        << "the bug report names the exact build";
     EXPECT_TRUE(query.hasQueryItem(QStringLiteral("system")));
 }

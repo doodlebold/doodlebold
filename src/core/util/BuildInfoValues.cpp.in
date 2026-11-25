@@ -1,0 +1,16 @@
+// Edit src/core/util/BuildInfoValues.cpp.in, not the copy in the build folder: cmake/WriteBuildInfo.cmake writes it again at
+// every build.
+
+#include "core/util/BuildInfo.h"
+
+namespace doodlebold::build_info {
+
+QString version() {
+    return QStringLiteral("@DOODLEBOLD_VERSION@");
+}
+
+QString commit() {
+    return QStringLiteral("@DOODLEBOLD_COMMIT@");
+}
+
+}

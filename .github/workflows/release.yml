@@ -9,6 +9,11 @@ on:
 permissions:
   contents: write
 
+# An environment variable because the jobs configure through `cmake --workflow` and ci/ scripts, which take no -D
+# (cmake/Version.cmake).
+env:
+  DOODLEBOLD_RELEASE_VERSION: ${{ github.event.release.tag_name }}
+
 jobs:
   windows:
     runs-on: windows-2022
