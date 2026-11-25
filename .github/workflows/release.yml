@@ -89,3 +89,16 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: gh release upload "${{ github.event.release.tag_name }}" artifacts/* --clobber -R "${{ github.repository }}"
+
+  # Builds that aren't releases read the last release's version from VERSION (cmake/Version.cmake), so they need no git.
+  record-version:
+    if: github.event_name == 'release'
+    needs: attach
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+
+      - name: The release's version into VERSION on the default branch
+        run: ci/record-release-version.sh "${{ github.event.release.tag_name }}"

@@ -132,14 +132,12 @@ find_package(JPEG REQUIRED)
 find_package(Threads REQUIRED)
 target_link_libraries(doodlebold_core PUBLIC Qt6::Core Qt6::Gui Threads::Threads)
 target_link_libraries(doodlebold_core PRIVATE JPEG::JPEG doodlebold_miniz)
-# A target, not configure_file at configure, so the commit is the one built.
-add_custom_target(doodlebold_build_info
-  COMMAND ${CMAKE_COMMAND} -DGIT=${GIT_EXECUTABLE} -DSOURCE_DIR=${CMAKE_SOURCE_DIR} -DVERSION=${DOODLEBOLD_DISPLAY_VERSION}
-          -DIN=${CMAKE_CURRENT_SOURCE_DIR}/core/util/BuildInfoValues.cpp.in -DOUT=${CMAKE_CURRENT_BINARY_DIR}/BuildInfoValues.cpp
-          -P ${CMAKE_SOURCE_DIR}/cmake/WriteBuildInfo.cmake
-  BYPRODUCTS ${CMAKE_CURRENT_BINARY_DIR}/BuildInfoValues.cpp
-  VERBATIM)
-add_dependencies(doodlebold_core doodlebold_build_info)
+# Hash characters shown: 7, git's and GitHub's own short length, so a reported hash reads as it does there.
+set(doodlebold_commit_length 7)
+# The commit only where GitHub names it, so no build needs git; a local build shows the version alone.
+set(DOODLEBOLD_VERSION "${DOODLEBOLD_DISPLAY_VERSION}")
+string(SUBSTRING "$ENV{GITHUB_SHA}" 0 ${doodlebold_commit_length} DOODLEBOLD_COMMIT)
+configure_file(core/util/BuildInfoValues.cpp.in ${CMAKE_CURRENT_BINARY_DIR}/BuildInfoValues.cpp @ONLY)
 doodlebold_set_warnings(doodlebold_core)
 # The painting files use AVX2: only these files get the flag, so the rest of the program, main() among it, still starts on any
 # x86-64 processor and can say this one isn't supported (platform::processorIsSupported). -mavx2 alone, never -march=x86-64-v3 or

@@ -12,7 +12,7 @@ TEST(BuildInfo, VersionTextNamesTheCommitAfterTheVersion) {
               QStringLiteral("1.2.0-dev (abc1234)"));
 }
 
-// A build from a source archive has neither git nor GITHUB_SHA, and "1.2.0 ()" would read as a broken build.
+// A build outside GitHub has no GITHUB_SHA, and "1.2.0 ()" would read as a broken build.
 TEST(BuildInfo, VersionTextWithoutACommitIsTheVersionAlone) {
     EXPECT_EQ(build_info::versionText(QStringLiteral("1.2.0"), QString()), QStringLiteral("1.2.0"));
 }

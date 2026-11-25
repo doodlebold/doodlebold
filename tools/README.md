@@ -125,13 +125,14 @@ A release takes its version from its GitHub tag. Publish a release on GitHub und
 `v1.2.0`. release.yml passes the tag to every job as `DOODLEBOLD_RELEASE_VERSION`, and `cmake/Version.cmake` makes it the
 build's version: About shows "Version 1.2.0 (abc1234)", with the commit it was built from, and the zip, RPM and AppImage are
 named for it. Nothing in the repository needs changing for a release. A tag in any other form, such as `v1.2.0-beta` (an RPM
-version can't hold a `-`), stops every job at configure with a message, before anything is packaged.
+version can't hold a `-`), stops every job at configure with a message, before anything is packaged. Once the packages are
+attached, release.yml writes the release's version to `VERSION` and commits it to the default branch (`ci/record-release-version.sh`;
+only ever forward, so a fix released for an older version leaves it alone).
 
-Any other build names the last release tag git can see with `-dev` after it, for example "Version 1.2.0-dev (abc1234)": work
-after 1.2.0, not released. Without a tag (CI's shallow checkouts have none) it is `1.0.0-dev`. The commit is read at every
-build (`cmake/WriteBuildInfo.cmake`), so it is the one built, not the one at the last configure; without git, from
-`GITHUB_SHA`; with neither, About shows the version alone. The version and commit also go into bug reports (Help > Report a
-Bug) and the tablet diagnostics report.
+Any other build names the version in `VERSION`, the last release, with `-dev` after it, for example "Version 1.2.0-dev": work
+after 1.2.0, not released. No build asks git anything. The commit comes from GitHub's `GITHUB_SHA`, so builds on GitHub show
+it, for example "Version 1.2.0 (abc1234)", and a local build shows the version alone. The version and commit also go into bug
+reports (Help > Report a Bug) and the tablet diagnostics report.
 
 To build a release by hand: `cmake --preset linux-release -DDOODLEBOLD_RELEASE_VERSION=v1.2.0`. The version is set at the
 first configure of a build folder; to change it, pass `-DDOODLEBOLD_RELEASE_VERSION=` again (empty for a `-dev` build).
