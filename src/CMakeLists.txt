@@ -176,6 +176,7 @@ add_library(doodlebold_ui STATIC
   ui/UsageMeters.cpp ui/UsageMeters.h
   ui/Toast.cpp ui/Toast.h
   ui/AboutDialog.cpp ui/AboutDialog.h
+  ui/CrashReportDialog.cpp ui/CrashReportDialog.h
   ui/SelectionGrowDialog.cpp ui/SelectionGrowDialog.h
   ui/TabletDiagnosticsDialog.cpp ui/TabletDiagnosticsDialog.h
   ui/TabletInput.cpp ui/TabletInput.h
@@ -221,6 +222,7 @@ add_library(doodlebold_ui STATIC
   ui/tools/QuickShapeTool.cpp ui/tools/QuickShapeTool.h
   ui/tools/TransformTools.cpp ui/tools/TransformTools.h
   platform/BackgroundBlur.cpp platform/BackgroundBlur.h
+  platform/CrashReport.cpp platform/CrashReport.h
   platform/PenCursor.cpp platform/PenCursor.h
   platform/Platform.cpp platform/Platform.h
   platform/SystemUsage.cpp platform/SystemUsage.h

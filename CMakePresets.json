@@ -125,6 +125,19 @@
         "lhs": "${hostSystemName}",
         "rhs": "Linux"
       }
+    },
+    {
+      "name": "windows-mingw",
+      "displayName": "Windows: MSYS2 MinGW-w64 build with tests (from an MSYS2 MINGW64 shell)",
+      "inherits": "base",
+      "cacheVariables": {
+        "CMAKE_BUILD_TYPE": "RelWithDebInfo"
+      },
+      "condition": {
+        "type": "equals",
+        "lhs": "${hostSystemName}",
+        "rhs": "Windows"
+      }
     }
   ],
   "buildPresets": [
@@ -171,6 +184,10 @@
     {
       "name": "windows-mingw-cross",
       "configurePreset": "windows-mingw-cross"
+    },
+    {
+      "name": "windows-mingw",
+      "configurePreset": "windows-mingw"
     }
   ],
   "testPresets": [
@@ -328,6 +345,12 @@
           "name": "TimelapseCost|EffectSession\\.ALargeLayerDoesNotHoldUpTheCaller"
         }
       }
+    },
+    {
+      "name": "windows-mingw",
+      "displayName": "Windows, MinGW: unit and UI tests, offscreen",
+      "inherits": "windows-msvc",
+      "configurePreset": "windows-mingw"
     }
   ],
   "packagePresets": [
@@ -455,6 +478,23 @@
         {
           "type": "test",
           "name": "windows-msvc"
+        }
+      ]
+    },
+    {
+      "name": "windows-mingw",
+      "steps": [
+        {
+          "type": "configure",
+          "name": "windows-mingw"
+        },
+        {
+          "type": "build",
+          "name": "windows-mingw"
+        },
+        {
+          "type": "test",
+          "name": "windows-mingw"
         }
       ]
     },

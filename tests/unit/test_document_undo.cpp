@@ -1,5 +1,6 @@
 #include "core/document/Document.h"
 #include "core/paint/StrokeController.h"
+#include "core/paint/StrokeMemory.h"
 
 #include <gtest/gtest.h>
 
@@ -163,4 +164,42 @@ TEST(StrokeController, RefusesLockedLayerWithReason) {
     ASSERT_FALSE(started);
     EXPECT_EQ(started.error(), EditError::LayerLocked);
     EXPECT_FALSE(doc.isPainting());
+}
+
+namespace {
+
+struct MemorySetTo {
+    explicit MemorySetTo(std::int64_t bytes) { stroke_memory::setPolicy({bytes, false}); }
+    ~MemorySetTo() { stroke_memory::setPolicy({}); }
+    MemorySetTo(const MemorySetTo&) = delete;
+    MemorySetTo& operator=(const MemorySetTo&) = delete;
+};
+
+}
+
+TEST(Document, PastItsShareOfMemoryUndoLetsGoOfTheOldestStepsPixels) {
+    const MemorySetTo oneByte(1);  // no step's pixels fit, so only the newest step's are kept
+    Document doc(QSize(120, 80), Qt::white);
+    for (int i = 0; i < 3; ++i)
+        paintLine(doc);  // each over the last, so each keeps the tiles it painted over
+    EXPECT_TRUE(doc.undo()) << "the newest step is always kept";
+    const auto refused = doc.undo();
+    ASSERT_FALSE(refused);
+    EXPECT_EQ(refused.error(), EditError::UndoLetGo);
+    EXPECT_TRUE(doc.redo());
+}
+
+TEST(Document, WithinItsShareOfMemoryEveryStepIsKept) {
+    Document doc(QSize(120, 80), Qt::white);
+    for (int i = 0; i < 3; ++i)
+        paintLine(doc);
+    for (int i = 0; i < 3; ++i)
+        EXPECT_TRUE(doc.undo());
+    EXPECT_TRUE(doc.currentLayer()->pixels.isEmpty());
+}
+
+TEST(Document, ACanvasKeeps25UndoStepsUnlessTheOptionsSayOtherwise) {
+    EXPECT_EQ(AppOptions::Values{}.undoSteps, 25);
+    Document doc(QSize(64, 64), Qt::white);
+    EXPECT_EQ(doc.undoStack()->undoLimit(), 25);
 }

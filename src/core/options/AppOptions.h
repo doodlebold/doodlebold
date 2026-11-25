@@ -58,7 +58,7 @@ public:
         // Options > Performance. None of them changes how a stroke looks.
         bool frostedMenus = true;  // menus and popups blur what's behind them, where the desktop can
         ZoomedOut zoomedOut = ZoomedOut::ByGraphics;  // Fast: zoomed out, without the smoothing that weak graphics find slow
-        int undoSteps = 100;  // how many steps Undo keeps, kLeastUndoSteps … kMostUndoSteps
+        int undoSteps = kDefaultUndoSteps;  // how many steps Undo keeps, kLeastUndoSteps … kMostUndoSteps
         bool brushOutline = true;  // the brush's outline is drawn under the pen
         bool strokeTiming = false;  // the canvas shows how long the pen events of a stroke took to paint
         // Options › Performance › Memory: what Doodlebold may use, the machine's amount (Automatic) or the user's own, and
@@ -71,6 +71,7 @@ public:
 
     static constexpr int kLeastUndoSteps = 10;
     static constexpr int kMostUndoSteps = 1000;
+    static constexpr int kDefaultUndoSteps = 25;
 
     explicit AppOptions(QObject* parent = nullptr);
 

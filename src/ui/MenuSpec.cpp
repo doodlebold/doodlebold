@@ -234,6 +234,7 @@ constexpr Entry kWindow[] = {
 constexpr Entry kHelp[] = {
     cmd("other.tabletDiagnostics", "Tablet Diagnostics…"),
     cmd("other.reportBug", "Report a Bug…"),
+    cmd("other.crashReport", "Crash Report…"),
     sep(),
     cmd("other.aboutDoodlebold", "About Doodlebold…"),
 };

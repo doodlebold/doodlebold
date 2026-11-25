@@ -1453,20 +1453,29 @@ void CanvasView::tabletEvent(QTabletEvent* e) {
             }
         }
         break;
-    case QEvent::TabletMove: movePointer(s, e->position(), e->modifiers()); break;
-    case QEvent::TabletRelease:
-        if (m_mode == Mode::Painting)
-            endStroke();
-        else if (m_mode == Mode::Tool && activeTool())
-            activeTool()->release(pointer(s, e->position(), e->modifiers()));
-        m_mode = Mode::Idle;
-        forgetHeldGesture();
-        m_tabletStrokeActive = false;
-        updateCursor();
+    case QEvent::TabletMove:
+        // Windows Ink can keep a pen-up for its own gestures (press and hold): a move with nothing pressed means the release was lost,
+        // and without this the stroke went on painting the hover and the mouse was shut out until the next pen-up.
+        if (m_tabletStrokeActive && e->buttons() == Qt::NoButton)
+            endPenPress(s, *e);
+        else
+            movePointer(s, e->position(), e->modifiers());
         break;
+    case QEvent::TabletRelease: endPenPress(s, *e); break;
     default: break;
     }
     e->accept();  // accepted tablet events are not re-sent as synthesized mouse events
+}
+
+void CanvasView::endPenPress(const InputSample& s, const QTabletEvent& e) {
+    if (m_mode == Mode::Painting)
+        endStroke();
+    else if (m_mode == Mode::Tool && activeTool())
+        activeTool()->release(pointer(s, e.position(), e.modifiers()));
+    m_mode = Mode::Idle;
+    forgetHeldGesture();
+    m_tabletStrokeActive = false;
+    updateCursor();
 }
 
 void CanvasView::mousePressEvent(QMouseEvent* e) {

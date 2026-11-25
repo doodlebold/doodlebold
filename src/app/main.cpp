@@ -1,6 +1,7 @@
 #include "core/io/PluginLoader.h"
 #include "core/options/AppOptions.h"
 #include "core/util/AppIdentity.h"
+#include "platform/CrashReport.h"
 #include "platform/Platform.h"
 #include "ui/GlassPopups.h"
 #include "ui/MainWindow.h"
@@ -22,8 +23,10 @@ int main(int argc, char* argv[]) {
     QApplication::setApplicationDisplayName(QStringLiteral("Doodlebold"));
     QApplication::setApplicationVersion(QStringLiteral(DOODLEBOLD_VERSION));
     QApplication::setDesktopFileName(QStringLiteral("doodlebold"));
+    doodlebold::crash_report::install();  // once the version and the app's data folder are known
 
     doodlebold::platform::routeAltSpaceToWidgets();
+    doodlebold::platform::turnOffPenGestures();
     // Options > Performance > Frosted menus, known before the first menu is made; MainWindow follows its changes.
     doodlebold::GlassPopups::setFrosted(doodlebold::AppOptions().values().frostedMenus);
     doodlebold::Theme::apply(app);
@@ -55,6 +58,10 @@ int main(int argc, char* argv[]) {
         QTimer::singleShot(0, &window, [&window, notes = plugins.notes] {
             QMessageBox::information(&window, QCoreApplication::translate("main", "Plugins"), notes.join(QStringLiteral("\n\n")));
         });
+    if (const QString crashed = doodlebold::crash_report::takeNewReport(); !crashed.isEmpty())
+        QTimer::singleShot(0, &window, [&window, crashed] { window.showCrashReport(crashed, true); });
     window.openFiles(QApplication::arguments().mid(1));
-    return QApplication::exec();
+    const int status = QApplication::exec();
+    doodlebold::crash_report::uninstall();
+    return status;
 }

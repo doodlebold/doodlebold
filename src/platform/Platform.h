@@ -13,6 +13,8 @@ QStringList inputDeviceReport();
 QSurfaceFormat defaultSurfaceFormat();
 // On Windows Qt keeps Alt+Space for the window's system menu, so the canvas never sees it: this hands it to the focused widget.
 void routeAltSpaceToWidgets();
+// Windows Ink's press and hold took the pen-up for its right-click, which left the stroke open.
+void turnOffPenGestures();
 // Whether a context of this format can run the canvas's shaders, which are GLSL 3.30.
 bool canDrawTheCanvas(const QSurfaceFormat& context);
 // Whether this processor has AVX2, which the painting code is built with (src/CMakeLists.txt): without it the first stroke would crash.

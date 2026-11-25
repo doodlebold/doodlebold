@@ -33,6 +33,7 @@ enum class EditError {
     LastShownTrack,   // at least one track stays shown
     NoSuchTrack,      // a track index outside the animation
     TrackLocked,      // changing or painting a locked track
+    UndoLetGo,        // Undo reached a step whose pixels were freed to keep within memory
 };
 
 QString describe(EditError e);

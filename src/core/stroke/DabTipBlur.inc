@@ -552,8 +552,9 @@ void DabPainter::gaussianLine(const Pixels& from, Pixels& to, double sigma, bool
     const double b3d = 0.422205 * q * q * q / b0d;
     const float b1 = static_cast<float>(b1d), b2 = static_cast<float>(b2d), b3 = static_cast<float>(b3d);
     const float gain = 1.0f - (b1 + b2 + b3);  // of the floats themselves, so an even colour stays that colour
-    thread_local std::vector<Premultiplied> forward;
-    forward.resize(static_cast<std::size_t>(length));
+    // Not thread_local: MinGW's emulated TLS frees a thread's storage before its thread_local destructors run (GCC bug 80816),
+    // which corrupted the heap as a stroke's worker thread ended. One allocation a line, beside a pass over the whole line.
+    std::vector<Premultiplied> forward(static_cast<std::size_t>(length));
     Premultiplied w1, w2, w3;
     for (std::size_t c = 0; c < 4; ++c)
         w1[c] = w2[c] = w3[c] = line[0][c] + kGaussianLift;

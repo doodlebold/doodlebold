@@ -9,6 +9,7 @@
 
 #ifdef Q_OS_WIN
 #include <windows.h>
+#include <tpcshrd.h>
 #endif
 
 #include <QInputDevice>
@@ -53,8 +54,46 @@ void routeAltSpaceToWidgets() {
     static AltSpaceFilter filter;
     QCoreApplication::instance()->installNativeEventFilter(&filter);
 }
+
+namespace {
+
+// Each of these gestures can take a pen-down or pen-up for itself.
+constexpr LRESULT kPenGesturesOff = TABLET_DISABLE_PRESSANDHOLD | TABLET_DISABLE_PENTAPFEEDBACK | TABLET_DISABLE_PENBARRELFEEDBACK |
+                                    TABLET_DISABLE_FLICKS | TABLET_DISABLE_FLICKFALLBACKKEYS;
+constexpr FEEDBACK_TYPE kPenFeedback[] = {FEEDBACK_PEN_PRESSANDHOLD, FEEDBACK_PEN_TAP, FEEDBACK_PEN_DOUBLETAP, FEEDBACK_PEN_RIGHTTAP,
+                                          FEEDBACK_PEN_BARRELVISUALIZATION};
+
+// Set again each time a pen comes over a window, as Qt can make a window's native handle anew.
+void turnOffPenFeedback(HWND window) {
+    const BOOL off = FALSE;
+    for (const FEEDBACK_TYPE feedback : kPenFeedback)
+        SetWindowFeedbackSetting(window, feedback, 0, sizeof(off), &off);
+}
+
+class PenGestureFilter : public QAbstractNativeEventFilter {
+public:
+    bool nativeEventFilter(const QByteArray& type, void* message, qintptr* result) override {
+        if (type != "windows_generic_MSG")
+            return false;
+        const MSG* msg = static_cast<const MSG*>(message);
+        if (msg->message == WM_POINTERENTER)
+            turnOffPenFeedback(msg->hwnd);
+        if (msg->message != WM_TABLET_QUERYSYSTEMGESTURESTATUS)
+            return false;
+        *result = kPenGesturesOff;
+        return true;
+    }
+};
+
+}
+
+void turnOffPenGestures() {
+    static PenGestureFilter filter;
+    QCoreApplication::instance()->installNativeEventFilter(&filter);
+}
 #else
 void routeAltSpaceToWidgets() {}
+void turnOffPenGestures() {}
 #endif
 
 QSurfaceFormat defaultSurfaceFormat() {

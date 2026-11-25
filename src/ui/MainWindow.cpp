@@ -8,6 +8,7 @@
 #include "core/tools/ToolBox.h"
 #include "core/tools/ToolBoxStore.h"
 #include "ui/AboutDialog.h"
+#include "ui/CrashReportDialog.h"
 #include "ui/CanvasView.h"
 #include "ui/ColumnDivider.h"
 #include "ui/DocumentTabs.h"
@@ -596,6 +597,12 @@ void MainWindow::showTabletDiagnostics() {
     auto* dlg = new TabletDiagnosticsDialog(m_stats, this);
     dlg->setAttribute(Qt::WA_DeleteOnClose);
     dlg->show();
+}
+
+void MainWindow::showCrashReport(const QString& report, bool afterCrash) {
+    auto* dlg = new CrashReportDialog(report, afterCrash, this);
+    dlg->setAttribute(Qt::WA_DeleteOnClose);
+    dlg->open();  // window-modal, as About is
 }
 
 void MainWindow::showAbout() {

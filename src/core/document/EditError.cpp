@@ -34,6 +34,8 @@ QString describe(EditError e) {
     case EditError::LastShownTrack: return QCoreApplication::translate("EditError", "At least one track stays shown.");
     case EditError::NoSuchTrack: return QCoreApplication::translate("EditError", "There is no such track.");
     case EditError::TrackLocked: return QCoreApplication::translate("EditError", "The track is locked.");
+    case EditError::UndoLetGo:
+        return QCoreApplication::translate("EditError", "Older steps were let go to keep within the memory set in Options › Performance.");
     }
     return {};
 }
