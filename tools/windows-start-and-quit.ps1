@@ -20,6 +20,38 @@ $null = $p.Handle  # keeps the exit code readable after the process ends
 
 function Show-Log { if (Test-Path $log) { Get-Content $log } }
 
+Add-Type @'
+using System;
+using System.Collections.Generic;
+using System.Runtime.InteropServices;
+using System.Text;
+public static class ProcessWindows {
+    delegate bool EnumProc(IntPtr window, IntPtr data);
+    [DllImport("user32.dll")] static extern bool EnumWindows(EnumProc proc, IntPtr data);
+    [DllImport("user32.dll")] static extern uint GetWindowThreadProcessId(IntPtr window, out uint pid);
+    [DllImport("user32.dll")] static extern bool IsWindowVisible(IntPtr window);
+    [DllImport("user32.dll", CharSet = CharSet.Unicode)] static extern int GetWindowText(IntPtr window, StringBuilder text, int size);
+    [DllImport("user32.dll")] static extern bool PostMessage(IntPtr window, uint message, IntPtr w, IntPtr l);
+    const uint WM_CLOSE = 0x0010;
+    // Closes the process's visible windows other than `main`, and gives their titles.
+    public static List<string> CloseOthers(int processId, IntPtr main) {
+        var closed = new List<string>();
+        EnumWindows((window, data) => {
+            uint pid;
+            GetWindowThreadProcessId(window, out pid);
+            if (pid == processId && window != main && IsWindowVisible(window)) {
+                var title = new StringBuilder(256);
+                GetWindowText(window, title, title.Capacity);
+                closed.Add(title.ToString());
+                PostMessage(window, WM_CLOSE, IntPtr.Zero, IntPtr.Zero);
+            }
+            return true;
+        }, IntPtr.Zero);
+        return closed;
+    }
+}
+'@
+
 Start-Sleep -Seconds $Seconds
 if ($p.HasExited) {
     Write-Host ("doodlebold quit by itself with exit code 0x{0:X8}" -f $p.ExitCode)
@@ -38,6 +70,9 @@ if ($Screenshot) {
     $bitmap.Save($Screenshot, [System.Drawing.Imaging.ImageFormat]::Png)
 }
 
+# A dialog the file brings up, such as the notes of an import, disables the main window, which then can't be closed.
+foreach ($title in [ProcessWindows]::CloseOthers($p.Id, $p.MainWindowHandle)) { Write-Host "closed dialog: '$title'" }
+Start-Sleep -Seconds 1
 if (-not $p.CloseMainWindow()) {
     Write-Host 'doodlebold has no main window to close'
     Stop-Process -Id $p.Id -Force
