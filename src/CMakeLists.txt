@@ -52,6 +52,7 @@ add_library(doodlebold_core STATIC
   core/io/PluginFormat.cpp core/io/PluginFormat.h
   core/io/PluginLoader.cpp core/io/PluginLoader.h
   core/io/PsdFormat.cpp core/io/PsdFormat.h
+  core/io/RecoveryStore.cpp core/io/RecoveryStore.h
   core/layers/BlendMode.cpp core/layers/BlendMode.h
   core/layers/BlendOps.cpp core/layers/BlendOps.h
   core/layers/CanvasBackground.cpp core/layers/CanvasBackground.h
@@ -186,6 +187,8 @@ add_library(doodlebold_ui STATIC
   ui/Toast.cpp ui/Toast.h
   ui/AboutDialog.cpp ui/AboutDialog.h
   ui/CrashReportDialog.cpp ui/CrashReportDialog.h
+  ui/RecoveryController.cpp ui/RecoveryController.h
+  ui/RecoveryDialog.cpp ui/RecoveryDialog.h
   ui/SelectionGrowDialog.cpp ui/SelectionGrowDialog.h
   ui/TabletDiagnosticsDialog.cpp ui/TabletDiagnosticsDialog.h
   ui/TabletInput.cpp ui/TabletInput.h

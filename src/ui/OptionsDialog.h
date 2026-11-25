@@ -8,7 +8,9 @@ class QDoubleSpinBox;
 class QCheckBox;
 class QComboBox;
 class QLabel;
+class QLineEdit;
 class QListWidget;
+class QPushButton;
 class QSpinBox;
 class QStackedWidget;
 class QVBoxLayout;
@@ -40,6 +42,8 @@ private:
     QWidget* preferencePage();
     QWidget* timelapsePage();
     QWidget* drawingPage();
+    QWidget* recoveryPage();
+    void enableRecoveryControls(bool on);
     void buildMemorySection(QVBoxLayout* page);
     void showMemoryAmount();
     void showMemoryInUse();
@@ -71,6 +75,11 @@ private:
     QCheckBox* m_recordNewCanvases = nullptr;
     QCheckBox* m_quickShapes = nullptr;
     QDoubleSpinBox* m_quickShapeHold = nullptr;
+    QCheckBox* m_saveRecoveryCopies = nullptr;
+    QSpinBox* m_recoveryMinutes = nullptr;
+    QSpinBox* m_recoveryCopiesKept = nullptr;
+    QLineEdit* m_recoveryFolder = nullptr;
+    QPushButton* m_recoveryBrowse = nullptr;
     KeysPage* m_keys = nullptr;
 };
 

@@ -3,6 +3,8 @@
 #include "core/paint/StrokeMemory.h"
 #include "core/util/AppIdentity.h"
 
+#include <QStandardPaths>
+
 #include <algorithm>
 #include <cmath>
 
@@ -33,6 +35,10 @@ constexpr const char* kCustomMemory = "options/customMemory";
 constexpr const char* kCustomMemoryGB = "options/customMemoryGB";
 constexpr const char* kKeepBrushesInMemory = "options/keepBrushesInMemory";
 constexpr const char* kCheckForUpdatesAtStart = "options/checkForUpdatesAtStart";
+constexpr const char* kSaveRecoveryCopies = "options/saveRecoveryCopies";
+constexpr const char* kRecoveryMinutes = "options/recoveryMinutes";
+constexpr const char* kRecoveryCopiesKept = "options/recoveryCopiesKept";
+constexpr const char* kRecoveryFolder = "options/recoveryFolder";
 constexpr double kBytesPerGB = 1024.0 * 1024.0 * 1024.0;
 constexpr double kLeastMemoryGB = 1.0;
 constexpr double kMemoryStepGB = 0.5;
@@ -112,6 +118,10 @@ AppOptions::Values AppOptions::clamped(Values v) {
     v.quickShapeHoldMs = std::clamp(v.quickShapeHoldMs, 300, 3000);
     v.undoSteps = std::clamp(v.undoSteps, kLeastUndoSteps, kMostUndoSteps);
     v.held = clampedHeld(v.held);
+    v.recoveryMinutes = std::clamp(v.recoveryMinutes, kLeastRecoveryMinutes, kMostRecoveryMinutes);
+    v.recoveryCopiesKept = std::clamp(v.recoveryCopiesKept, kLeastRecoveryCopiesKept, kMostRecoveryCopiesKept);
+    if (v.recoveryFolder.trimmed().isEmpty())
+        v.recoveryFolder = defaultRecoveryFolder();
     if (v.customMemoryGB > 0.0) {
         const double most = std::max(kLeastMemoryGB, std::floor(machineMemoryGB() / kMemoryStepGB) * kMemoryStepGB);
         v.customMemoryGB = std::clamp(std::round(v.customMemoryGB / kMemoryStepGB) * kMemoryStepGB, kLeastMemoryGB, most);
@@ -129,6 +139,10 @@ double AppOptions::automaticMemoryGB() {
 
 std::int64_t AppOptions::memoryBytes(const Values& v) {
     return v.customMemory && v.customMemoryGB > 0.0 ? std::int64_t(v.customMemoryGB * kBytesPerGB) : 0;
+}
+
+QString AppOptions::defaultRecoveryFolder() {
+    return QStandardPaths::writableLocation(QStandardPaths::AppLocalDataLocation) + QStringLiteral("/recovery");
 }
 
 AppOptions::AppOptions(QObject* parent) : QObject(parent) {
@@ -156,6 +170,10 @@ AppOptions::AppOptions(QObject* parent) : QObject(parent) {
     v.customMemoryGB = s.value(QLatin1String(kCustomMemoryGB), v.customMemoryGB).toDouble();
     v.keepBrushesInMemory = s.value(QLatin1String(kKeepBrushesInMemory), v.keepBrushesInMemory).toBool();
     v.checkForUpdatesAtStart = s.value(QLatin1String(kCheckForUpdatesAtStart), v.checkForUpdatesAtStart).toBool();
+    v.saveRecoveryCopies = s.value(QLatin1String(kSaveRecoveryCopies), v.saveRecoveryCopies).toBool();
+    v.recoveryMinutes = s.value(QLatin1String(kRecoveryMinutes), v.recoveryMinutes).toInt();
+    v.recoveryCopiesKept = s.value(QLatin1String(kRecoveryCopiesKept), v.recoveryCopiesKept).toInt();
+    v.recoveryFolder = s.value(QLatin1String(kRecoveryFolder)).toString();
     v.held.pan = s.value(QLatin1String(kPanKey), v.held.pan).toInt();
     for (const HeldModifierKey& f : kHeldModifiers)
         v.held.*f.member = modifierNamed(s.value(QLatin1String(f.key)).toString(), v.held.*f.member);
@@ -190,6 +208,13 @@ void AppOptions::setValues(const Values& values) {
     s.setValue(QLatin1String(kCustomMemoryGB), v.customMemoryGB);
     s.setValue(QLatin1String(kKeepBrushesInMemory), v.keepBrushesInMemory);
     s.setValue(QLatin1String(kCheckForUpdatesAtStart), v.checkForUpdatesAtStart);
+    s.setValue(QLatin1String(kSaveRecoveryCopies), v.saveRecoveryCopies);
+    s.setValue(QLatin1String(kRecoveryMinutes), v.recoveryMinutes);
+    s.setValue(QLatin1String(kRecoveryCopiesKept), v.recoveryCopiesKept);
+    if (v.recoveryFolder == defaultRecoveryFolder())
+        s.remove(QLatin1String(kRecoveryFolder));  // the default follows the app's data folder wherever that is next time
+    else
+        s.setValue(QLatin1String(kRecoveryFolder), v.recoveryFolder);
     s.setValue(QLatin1String(kPanKey), v.held.pan);
     for (const HeldModifierKey& f : kHeldModifiers)
         s.setValue(QLatin1String(f.key), modifierName(v.held.*f.member));

@@ -45,6 +45,8 @@ class FileController;
 class LayerPanel;
 class NavigatorPanel;
 class QuickBar;
+class CrashReportDialog;
+class RecoveryController;
 class ToastStack;
 class MemoryNotice;
 class UpdateNotice;
@@ -70,6 +72,7 @@ public:
     AppOptions* options() const { return m_options; }
     EffectController* effects() const { return m_effects; }
     AnimationController* animation() const { return m_animation; }
+    RecoveryController* recovery() const { return m_recovery; }
 
     // The action of a menu entry or key command by its id in MenuSpec ("file.new", "tool.pencil"); null if there is no
     // such command.
@@ -90,7 +93,12 @@ public slots:
     void openFiles(const QStringList& paths);
     void showTabletDiagnostics();
     void showAbout();
-    void showCrashReport(const QString& report, bool afterCrash);
+    CrashReportDialog* showCrashReport(const QString& report, bool afterCrash);
+    // The canvases a run that didn't close left recovery copies of, if there are any.
+    void offerRecovery();
+    // At start: the last run's crash report if it crashed, then the canvases to recover, one after the other so that neither
+    // dialog covers the other.
+    void showStartDialogs(const QString& crashReport);
 
 protected:
     void closeEvent(QCloseEvent* e) override;
@@ -225,6 +233,7 @@ private:
     ToastStack* m_toasts = nullptr;
     FileController* m_files = nullptr;
     AppOptions* m_options = nullptr;
+    RecoveryController* m_recovery = nullptr;
     MemoryNotice* m_memoryNotice = nullptr;
     UpdateNotice* m_updateNotice = nullptr;
     QHash<QString, Binding> m_bindings;

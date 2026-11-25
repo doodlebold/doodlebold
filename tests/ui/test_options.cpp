@@ -100,10 +100,10 @@ TEST_F(OptionsTest, DialogHasPagesAndButtonsForWhatDoodleboldHonours) {
     QStringList names;
     for (int i = 0; i < pages->count(); ++i)
         names << pages->item(i)->text();
-    EXPECT_EQ(names, (QStringList{"Pen Tablet", "Performance", "View", "Drawing", "Keys", "Timelapse"}));
+    EXPECT_EQ(names, (QStringList{"Pen Tablet", "Performance", "View", "Drawing", "Keys", "Timelapse", "Recovery"}));
     dlg.addResourcesPage(nullptr);
     EXPECT_EQ(pages->item(5)->text(), QStringLiteral("Resources")) << "before Timelapse";
-    EXPECT_EQ(pages->count(), 7);
+    EXPECT_EQ(pages->count(), 8);
     EXPECT_EQ(pages->currentRow(), 0);
 
     auto* buttons = dlg.findChild<QDialogButtonBox*>();
@@ -160,7 +160,7 @@ TEST_F(OptionsTest, TheTimelapsePageHoldsOnlyRecordNewCanvases) {
     ASSERT_TRUE(pages);
     const QList<QListWidgetItem*> timelapse = pages->findItems(QStringLiteral("Timelapse"), Qt::MatchExactly);
     ASSERT_EQ(timelapse.size(), 1);
-    EXPECT_EQ(pages->row(timelapse[0]), pages->count() - 1) << "the last page";
+    EXPECT_EQ(pages->row(timelapse[0]), pages->count() - 2) << "the last page but Recovery";
     pages->setCurrentItem(timelapse[0]);
     auto* stack = dlg.findChild<QStackedWidget*>();
     ASSERT_TRUE(stack);

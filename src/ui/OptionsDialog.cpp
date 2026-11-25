@@ -11,10 +11,14 @@
 #include <QCheckBox>
 #include <QComboBox>
 #include <QDialogButtonBox>
+#include <QDir>
+#include <QFileDialog>
 #include <QFrame>
 #include <QHBoxLayout>
 #include <QLabel>
+#include <QLineEdit>
 #include <QListWidget>
+#include <QPushButton>
 #include <QScrollArea>
 #include <QSpinBox>
 #include <QSplitter>
@@ -100,6 +104,8 @@ OptionsDialog::OptionsDialog(const AppOptions::Values& initial, QWidget* parent)
     m_stack->addWidget(buildKeysPage(v));
     m_pages->addItem(tr("Timelapse"));
     m_stack->addWidget(timelapsePage());
+    m_pages->addItem(tr("Recovery"));
+    m_stack->addWidget(recoveryPage());
 
     for (int i = 0; i < m_pages->count(); ++i)
         // The style sheet's padding alone does not make a list row taller.
@@ -128,6 +134,11 @@ OptionsDialog::OptionsDialog(const AppOptions::Values& initial, QWidget* parent)
     m_quickShapes->setChecked(v.quickShapes);
     m_quickShapeHold->setValue(v.quickShapeHoldMs / 1000.0);
     m_quickShapeHold->setEnabled(v.quickShapes);
+    m_saveRecoveryCopies->setChecked(v.saveRecoveryCopies);
+    m_recoveryMinutes->setValue(v.recoveryMinutes);
+    m_recoveryCopiesKept->setValue(v.recoveryCopiesKept);
+    m_recoveryFolder->setText(QDir::toNativeSeparators(v.recoveryFolder));
+    enableRecoveryControls(v.saveRecoveryCopies);
 
     auto* splitter = new QSplitter;
     splitter->setObjectName(QStringLiteral("optionsSplitter"));
@@ -367,6 +378,55 @@ QWidget* OptionsDialog::timelapsePage() {
     return pageOf(page);
 }
 
+QWidget* OptionsDialog::recoveryPage() {
+    QVBoxLayout* page = newPage();
+    QVBoxLayout* layout = addSection(page, tr("Recovery Copies"));
+    m_saveRecoveryCopies = option(tr("Save recovery copies"), "saveRecoveryCopiesCheck", true);
+    layout->addWidget(m_saveRecoveryCopies);
+    layout->addWidget(help(tr("Every few minutes, each canvas with unsaved changes is copied. If Doodlebold closes unexpectedly, "
+                              "the next start offers to restore them. Saving or closing a canvas deletes its copies.")));
+    auto* row = new QHBoxLayout;
+    row->addWidget(new QLabel(tr("Save a copy every:")));
+    m_recoveryMinutes = new QSpinBox;
+    m_recoveryMinutes->setObjectName(QStringLiteral("recoveryMinutesSpin"));
+    m_recoveryMinutes->setRange(AppOptions::kLeastRecoveryMinutes, AppOptions::kMostRecoveryMinutes);
+    row->addWidget(m_recoveryMinutes);
+    row->addWidget(new QLabel(tr("minutes")));
+    row->addStretch(1);
+    layout->addLayout(row);
+    row = new QHBoxLayout;
+    row->addWidget(new QLabel(tr("Keep:")));
+    m_recoveryCopiesKept = new QSpinBox;
+    m_recoveryCopiesKept->setObjectName(QStringLiteral("recoveryCopiesKeptSpin"));
+    m_recoveryCopiesKept->setRange(AppOptions::kLeastRecoveryCopiesKept, AppOptions::kMostRecoveryCopiesKept);
+    row->addWidget(m_recoveryCopiesKept);
+    row->addWidget(new QLabel(tr("newest copies of each canvas")));
+    row->addStretch(1);
+    layout->addLayout(row);
+    row = new QHBoxLayout;
+    row->addWidget(new QLabel(tr("Folder:")));
+    m_recoveryFolder = new QLineEdit;
+    m_recoveryFolder->setObjectName(QStringLiteral("recoveryFolderEdit"));
+    row->addWidget(m_recoveryFolder, 1);
+    m_recoveryBrowse = new QPushButton(tr("Browse…"));
+    m_recoveryBrowse->setObjectName(QStringLiteral("recoveryFolderBrowse"));
+    row->addWidget(m_recoveryBrowse);
+    layout->addLayout(row);
+    layout->addWidget(help(tr("The copies are .doodle files, in a folder of their own for each time Doodlebold runs.")));
+    connect(m_saveRecoveryCopies, &QCheckBox::toggled, this, &OptionsDialog::enableRecoveryControls);
+    connect(m_recoveryBrowse, &QPushButton::clicked, this, [this] {
+        const QString folder = QFileDialog::getExistingDirectory(this, tr("Recovery Folder"), m_recoveryFolder->text());
+        if (!folder.isEmpty())
+            m_recoveryFolder->setText(QDir::toNativeSeparators(folder));
+    });
+    return pageOf(page);
+}
+
+void OptionsDialog::enableRecoveryControls(bool on) {
+    for (QWidget* control : std::initializer_list<QWidget*>{m_recoveryMinutes, m_recoveryCopiesKept, m_recoveryFolder, m_recoveryBrowse})
+        control->setEnabled(on);
+}
+
 void OptionsDialog::showGraphicsChoice(bool fast) {
     if (m_zoomedOutGiven != AppOptions::ZoomedOut::ByGraphics)
         return;
@@ -399,6 +459,10 @@ AppOptions::Values OptionsDialog::values() const {
     v.altPicksColour = m_keys->picks();
     v.ctrlMovesLayers = m_keys->moves();
     v.held = m_keys->heldKeys();
+    v.saveRecoveryCopies = m_saveRecoveryCopies->isChecked();
+    v.recoveryMinutes = m_recoveryMinutes->value();
+    v.recoveryCopiesKept = m_recoveryCopiesKept->value();
+    v.recoveryFolder = QDir::fromNativeSeparators(m_recoveryFolder->text().trimmed());  // left empty: the default, once clamped
     return v;
 }
 

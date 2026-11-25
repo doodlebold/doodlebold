@@ -67,12 +67,28 @@ public:
         double customMemoryGB = 0.0;  // 0 until one is set: the dialog starts it at Automatic's amount
         bool keepBrushesInMemory = true;
         bool checkForUpdatesAtStart = true;  // at most once a day, Doodlebold asks GitHub whether a newer release exists
+        // Options › Recovery: copies of the canvases with unsaved changes, kept so a crash loses little work.
+        bool saveRecoveryCopies = true;
+        int recoveryMinutes = kDefaultRecoveryMinutes;  // how often, kLeastRecoveryMinutes … kMostRecoveryMinutes
+        int recoveryCopiesKept = kDefaultRecoveryCopiesKept;  // of each canvas, kLeastRecoveryCopiesKept … kMostRecoveryCopiesKept
+        QString recoveryFolder;  // empty until clamped, which gives defaultRecoveryFolder()
         bool operator==(const Values&) const = default;
     };
 
     static constexpr int kLeastUndoSteps = 10;
     static constexpr int kMostUndoSteps = 1000;
     static constexpr int kDefaultUndoSteps = 25;
+    // Minutes between recovery copies. 5 loses at most five minutes of painting to a crash while writing a large canvas (a few
+    // hundred MB) seldom enough not to be felt. The setting is in whole minutes, so 1 is its least; past 60 a crash could lose
+    // a whole session's painting.
+    static constexpr int kDefaultRecoveryMinutes = 5;
+    static constexpr int kLeastRecoveryMinutes = 1;
+    static constexpr int kMostRecoveryMinutes = 60;
+    // Copies kept of each canvas. 3 leaves two older ones if the newest can't be read, for three times the canvas's size on the
+    // drive; 20 reaches back 100 minutes at the default interval, and more would mostly fill the drive.
+    static constexpr int kDefaultRecoveryCopiesKept = 3;
+    static constexpr int kLeastRecoveryCopiesKept = 1;
+    static constexpr int kMostRecoveryCopiesKept = 20;
 
     explicit AppOptions(QObject* parent = nullptr);
 
@@ -85,6 +101,8 @@ public:
     static double machineMemoryGB();
     static double automaticMemoryGB();
     static std::int64_t memoryBytes(const Values& values);
+    // A "recovery" folder in the app's local data folder.
+    static QString defaultRecoveryFolder();
 
 signals:
     void changed();
