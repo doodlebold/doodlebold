@@ -323,6 +323,8 @@ if(MSVC)
   # Qt's DLLs and plugins beside the exe, as windeployqt puts them (the windows-zip preset packs the result).
   qt_generate_deploy_app_script(TARGET doodlebold OUTPUT_SCRIPT qt_deploy NO_TRANSLATIONS)
   install(SCRIPT ${qt_deploy})
+  # libjpeg-turbo's DLL too: Qt's deploy script copies only Qt's, and vcpkg copies it only into the build folder.
+  install(FILES "$<TARGET_FILE_DIR:doodlebold>/jpeg62.dll" DESTINATION ${CMAKE_INSTALL_BINDIR})
 elseif(MINGW)
   # MinGW has no windeployqt: cmake/MinGWDeploy.cmake copies Qt's plugins and every DLL the exe and they need from the sysroot.
   set(DOODLEBOLD_MINGW_ROOT "" CACHE PATH "The MinGW sysroot whose bin/ and lib/qt6/plugins/ hold what the zip ships")
