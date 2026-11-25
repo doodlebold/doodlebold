@@ -41,14 +41,11 @@ A free, open-source painting program for Windows and Linux, made to behave simil
 
 ## 🚀 Good to know
 
-- 💾 **Crashed?** Every few minutes Doodlebold keeps a recovery copy of each canvas with unsaved changes, and the next start
+- 💾 **Autosave Feature** Every few minutes Doodlebold keeps a recovery copy of each canvas with unsaved changes, and the next start
   offers to restore them. It never saves over your files, so save as usual. Edit > Options > Recovery sets how often and where.
-- ✍️ **Pen acting up?** Other > Tablet Diagnostics shows what your pen is sending.
-- 🐢 **Lagging?** Other > Options > Performance can show how long each stroke takes to paint, and turn off the frosted menus
+- ✍️ **My pen acting up** Other > Tablet Diagnostics shows what your pen is sending.
+- 🐢 **Doodlebold is lagging** Other > Options > Performance can show how long each stroke takes to paint, and turn off the frosted menus
   or the smooth zoomed-out view for weaker graphics.
-- 🔔 **New versions.** At start, once a day at most, Doodlebold asks GitHub for its latest release and tells you if it's newer,
-  with a link to its page; it never downloads anything. Help > Check for Updates asks at any time; Options > View turns the check
-  at start off.
 
 ## 🗺️ Coming later
 
