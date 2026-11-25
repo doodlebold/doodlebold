@@ -29,7 +29,7 @@ if(DOODLEBOLD_CCACHE AND NOT CMAKE_CXX_COMPILER_LAUNCHER)
   set(CMAKE_CXX_COMPILER_LAUNCHER "${DOODLEBOLD_CCACHE}")
 endif()
 
-find_package(Qt6 6.5 REQUIRED COMPONENTS Core Gui Widgets OpenGL OpenGLWidgets Svg)
+find_package(Qt6 6.5 REQUIRED COMPONENTS Core Gui Widgets OpenGL OpenGLWidgets Svg Network)
 
 include(cmake/Warnings.cmake)
 include(cmake/Lint.cmake)

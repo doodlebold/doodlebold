@@ -52,6 +52,7 @@ add_library(doodlebold_core STATIC
   core/io/PluginFormat.cpp core/io/PluginFormat.h
   core/io/PluginLoader.cpp core/io/PluginLoader.h
   core/io/PsdFormat.cpp core/io/PsdFormat.h
+  core/io/RecoveryStore.cpp core/io/RecoveryStore.h
   core/layers/BlendMode.cpp core/layers/BlendMode.h
   core/layers/BlendOps.cpp core/layers/BlendOps.h
   core/layers/CanvasBackground.cpp core/layers/CanvasBackground.h
@@ -120,6 +121,7 @@ add_library(doodlebold_core STATIC
   core/input/InputLog.cpp core/input/InputLog.h
   core/util/ProjectLinks.cpp core/util/ProjectLinks.h
   core/util/BuildInfo.cpp core/util/BuildInfo.h
+  core/util/UpdateCheck.cpp core/util/UpdateCheck.h
   core/util/BuildInfoValues.cpp.in ${CMAKE_CURRENT_BINARY_DIR}/BuildInfoValues.cpp
   core/input/InputSample.h
   core/input/TabletStats.cpp core/input/TabletStats.h
@@ -168,6 +170,7 @@ add_library(doodlebold_ui STATIC
   ui/JpegQualityDialog.cpp ui/JpegQualityDialog.h
   ui/NewCanvasDialog.cpp ui/NewCanvasDialog.h
   ui/MemoryNotice.cpp ui/MemoryNotice.h
+  ui/UpdateNotice.cpp ui/UpdateNotice.h
   ui/OptionsDialog.cpp ui/OptionsDialog.h
   ui/ResourcesPage.cpp ui/ResourcesPage.h
   ui/PackImportDialog.cpp ui/PackImportDialog.h
@@ -184,6 +187,8 @@ add_library(doodlebold_ui STATIC
   ui/Toast.cpp ui/Toast.h
   ui/AboutDialog.cpp ui/AboutDialog.h
   ui/CrashReportDialog.cpp ui/CrashReportDialog.h
+  ui/RecoveryController.cpp ui/RecoveryController.h
+  ui/RecoveryDialog.cpp ui/RecoveryDialog.h
   ui/SelectionGrowDialog.cpp ui/SelectionGrowDialog.h
   ui/TabletDiagnosticsDialog.cpp ui/TabletDiagnosticsDialog.h
   ui/TabletInput.cpp ui/TabletInput.h
@@ -285,6 +290,8 @@ else()
 endif()
 target_include_directories(doodlebold_ui PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
 target_link_libraries(doodlebold_ui PUBLIC doodlebold_core Qt6::Widgets Qt6::OpenGL Qt6::OpenGLWidgets Qt6::Svg)
+# Only the update check goes on the network (ui/UpdateNotice), to read GitHub's latest release.
+target_link_libraries(doodlebold_ui PRIVATE Qt6::Network)
 # The animation's sound clips play with it through Qt Multimedia where it is installed; without it the animation plays silently
 # (ui/animation/SoundPlayback). Saving and exporting the clips needs neither.
 find_package(Qt6 QUIET OPTIONAL_COMPONENTS Multimedia)

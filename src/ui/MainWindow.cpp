@@ -24,10 +24,13 @@
 #include "ui/OptionsDialog.h"
 #include "ui/QuickBar.h"
 #include "ui/PanelCard.h"
+#include "ui/RecoveryController.h"
+#include "ui/RecoveryDialog.h"
 #include "ui/SelectionGrowDialog.h"
 #include "ui/TabletDiagnosticsDialog.h"
 #include "ui/TabletInput.h"
 #include "ui/Theme.h"
+#include "ui/UpdateNotice.h"
 #include "core/color/ColorAssets.h"
 #include "core/color/ColorAssetsStore.h"
 #include "core/color/ColorState.h"
@@ -123,7 +126,10 @@ MainWindow::MainWindow(QWidget* parent)
         qWarning().noquote() << describe(loaded.error()) << m_toolStore->path();
     m_options = new AppOptions(this);
     connect(m_options, &AppOptions::changed, this, &MainWindow::applyOptions);
+    m_recovery = new RecoveryController(this);
+    connect(m_recovery, &RecoveryController::documentRestored, this, &MainWindow::addDocument);
     buildMemoryNotice();
+    m_updateNotice = new UpdateNotice(this);
     buildPanels();
     buildTimeline();
     m_tabs->setOuterGap(outerGap());
@@ -487,6 +493,7 @@ void MainWindow::openFiles(const QStringList& paths) {
 void MainWindow::addDocument(Document* doc, bool restoreView) {
     if (m_options->values().recordNewCanvases)
         doc->startRecording();
+    m_recovery->watch(doc);
     setUpView(m_tabs->addDocument(doc), restoreView);
 }
 
@@ -553,6 +560,7 @@ void MainWindow::applyOptions() {
     GlassPopups::setFrosted(v.frostedMenus);
     Document::setUndoSteps(v.undoSteps);
     stroke_memory::setPolicy({AppOptions::memoryBytes(v), v.keepBrushesInMemory});
+    m_recovery->apply(v);
     m_toolPanel->parameters()->refreshSizeLimit();
     for (int i = 0; i < m_tabs->count(); ++i)
         applyCanvasOptions(m_tabs->canvasAt(i));
@@ -593,16 +601,38 @@ void MainWindow::showOptions(bool atMemory) {
     dlg->open();
 }
 
+void MainWindow::checkForUpdatesAtStart() {
+    if (m_options->values().checkForUpdatesAtStart)
+        m_updateNotice->checkAtStart();
+}
+
 void MainWindow::showTabletDiagnostics() {
     auto* dlg = new TabletDiagnosticsDialog(m_stats, this);
     dlg->setAttribute(Qt::WA_DeleteOnClose);
     dlg->show();
 }
 
-void MainWindow::showCrashReport(const QString& report, bool afterCrash) {
+CrashReportDialog* MainWindow::showCrashReport(const QString& report, bool afterCrash) {
     auto* dlg = new CrashReportDialog(report, afterCrash, this);
     dlg->setAttribute(Qt::WA_DeleteOnClose);
     dlg->open();  // window-modal, as About is
+    return dlg;
+}
+
+void MainWindow::offerRecovery() {
+    const std::vector<LeftoverCanvas> canvases = m_recovery->leftovers();
+    if (canvases.empty())
+        return;
+    auto* dlg = new RecoveryDialog(m_recovery, canvases, this);
+    dlg->setAttribute(Qt::WA_DeleteOnClose);
+    dlg->open();
+}
+
+void MainWindow::showStartDialogs(const QString& crashReport) {
+    if (crashReport.isEmpty())
+        offerRecovery();
+    else
+        connect(showCrashReport(crashReport, true), &QDialog::finished, this, &MainWindow::offerRecovery);
 }
 
 void MainWindow::showAbout() {

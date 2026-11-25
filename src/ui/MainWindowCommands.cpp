@@ -20,6 +20,7 @@
 #include "ui/panels/ToolPanel.h"
 #include "ui/panels/ToolParameters.h"
 #include "ui/MemoryNotice.h"
+#include "ui/UpdateNotice.h"
 #include "ui/panels/ColorPanel.h"
 
 #include <QAction>
@@ -598,6 +599,7 @@ void MainWindow::registerOtherCommands() {
     bind("other.tabletDiagnostics", [this] { showTabletDiagnostics(); }, Enable::Always);
     bind("other.aboutDoodlebold", [this] { showAbout(); }, Enable::Always);
     bind("other.reportBug", [] { links::open(links::bugReportUrl(links::systemFacts())); }, Enable::Always);
+    bind("other.checkForUpdates", [this] { m_updateNotice->checkNow(); }, Enable::Always);
     bind("other.crashReport", [this] { showCrashReport(crash_report::lastReport(), false); }, Enable::Always);
 }
 

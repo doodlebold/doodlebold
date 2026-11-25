@@ -45,6 +45,7 @@
 #include <gtest/gtest.h>
 
 #include <memory>
+#include <set>
 
 using namespace doodlebold;
 
@@ -341,16 +342,46 @@ TEST(NewCanvasDialogTest, BackgroundComboAndSwatchSetTheAnswer) {
     };
     dlg.fields()->swatch()->click();
     EXPECT_EQ(asked, 1);
-    EXPECT_EQ(dlg.answer().values.background.color, QColor(255, 128, 0));
-    EXPECT_EQ(dlg.answer().values.background.mode, BackgroundMode::Black);
+    EXPECT_EQ(dlg.answer().values.background, (CanvasBackground{BackgroundMode::Color, QColor(255, 128, 0)}))
+        << "a colour picked over Black would be hidden, so it's Color";
+    EXPECT_EQ(dlg.fields()->backgroundCombo()->currentData().toInt(), static_cast<int>(BackgroundMode::Color));
     dlg.fields()->pickColor = [](const QColor&) -> std::optional<QColor> { return std::nullopt; };
+    dlg.fields()->backgroundCombo()->setCurrentIndex(1);
     dlg.fields()->swatch()->click();
-    EXPECT_EQ(dlg.answer().values.background.color, QColor(255, 128, 0));
-    dlg.fields()->backgroundCombo()->setCurrentIndex(2);
-    EXPECT_EQ(dlg.answer().values.background, (CanvasBackground{BackgroundMode::Color, QColor(255, 128, 0)}));
+    EXPECT_EQ(dlg.answer().values.background, (CanvasBackground{BackgroundMode::Black, QColor(255, 128, 0)})) << "Cancel changes nothing";
 }
 
-TEST(NewCanvasDialogTest, PlusRegistersAPresetAndTheWrenchEditsTheList) {
+TEST(NewCanvasDialogTest, AColourPickedOverATransparencyStaysTransparent) {
+    NewCanvasDialog dlg(QStringLiteral("NewCanvas1"), NewCanvasValues{}, defaultCanvasPresets());
+    dlg.fields()->backgroundCombo()->setCurrentIndex(dlg.fields()->backgroundCombo()->findData(
+        static_cast<int>(BackgroundMode::TransparencyBrightChecker)));
+    dlg.fields()->pickColor = [](const QColor&) -> std::optional<QColor> { return QColor(10, 200, 30); };
+    dlg.fields()->swatch()->click();
+    EXPECT_EQ(dlg.answer().values.background, (CanvasBackground{BackgroundMode::TransparencyColor, QColor(10, 200, 30)}));
+    EXPECT_EQ(dlg.fields()->backgroundCombo()->currentData().toInt(), static_cast<int>(BackgroundMode::TransparencyColor));
+}
+
+TEST(NewCanvasDialogTest, TheSwatchShowsWhatTheCanvasWillShow) {
+    NewCanvasDialog dlg(QStringLiteral("NewCanvas1"), NewCanvasValues{}, defaultCanvasPresets());
+    QComboBox* combo = dlg.fields()->backgroundCombo();
+    const auto colours = [&](BackgroundMode mode) {
+        combo->setCurrentIndex(combo->findData(static_cast<int>(mode)));
+        const QImage icon = dlg.fields()->swatch()->icon().pixmap(dlg.fields()->swatch()->iconSize()).toImage();
+        std::set<QRgb> seen;
+        for (int y = 0; y < icon.height(); ++y)
+            for (int x = 0; x < icon.width(); ++x)
+                seen.insert(icon.pixel(x, y) | 0xff000000u);
+        return seen;
+    };
+    EXPECT_EQ(colours(BackgroundMode::Black), (std::set<QRgb>{qRgb(0, 0, 0)}));
+    EXPECT_EQ(colours(BackgroundMode::Color), (std::set<QRgb>{qRgb(128, 128, 128)}));
+    EXPECT_EQ(colours(BackgroundMode::TransparencyBrightChecker).size(), 2u) << "its checkerboard";
+    const std::set<QRgb> overWhite = colours(BackgroundMode::TransparencyWhite);
+    EXPECT_TRUE(overWhite.contains(qRgb(255, 255, 255)));
+    EXPECT_GE(overWhite.size(), 3u) << "the checkerboard beside the white, unlike opaque White";
+}
+
+TEST(NewCanvasDialogTest, PlusRegistersAPresetAndTheGearEditsTheList) {
     NewCanvasValues v;
     v.pixels = QSize(1000, 700);
     NewCanvasDialog dlg(QStringLiteral("NewCanvas1"), v, defaultCanvasPresets());

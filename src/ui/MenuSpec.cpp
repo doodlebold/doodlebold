@@ -236,6 +236,7 @@ constexpr Entry kHelp[] = {
     cmd("other.reportBug", "Report a Bug…"),
     cmd("other.crashReport", "Crash Report…"),
     sep(),
+    cmd("other.checkForUpdates", "Check for Updates…"),
     cmd("other.aboutDoodlebold", "About Doodlebold…"),
 };
 
