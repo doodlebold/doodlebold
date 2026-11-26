@@ -16,7 +16,7 @@ namespace {
 
 constexpr int kT = Tile::kSize;
 constexpr std::int64_t kMaxPluginFile = std::int64_t{4} << 30;  // 4 GiB: the plugin is given the whole file at once
-constexpr std::int64_t kMaxArea = std::int64_t{kMaxCanvasSide} * kMaxCanvasSide;
+constexpr std::int64_t kMaxArea = file_limits::kMaxLayerPixels;
 constexpr std::size_t kSniffBytes = 4096;
 
 QString tr(const char* text) {
@@ -124,6 +124,9 @@ struct ReadSession {
     QStringList unknownModes;
     QString error;
     QSize tooLarge;  // a canvas set_canvas refused for being beyond kMaxCanvasSide
+    // What the plugin hands over is held to the limits every reader keeps (FileLimits.h): it reads files Doodlebold doesn't know.
+    file_limits::DecodeBudget budget;
+    QString beyondLimits;  // why a layer was refused for its size or number, which fails the read whatever the plugin returns
 };
 
 ReadSession& sessionOf(void* context) {
@@ -198,6 +201,16 @@ void applyLayer(ReadSession& s, const doodlebold_layer& l, LayerNode& node) {
 std::int32_t addLayerUnguarded(ReadSession& s, const doodlebold_layer& l) {
     if (!s.canvasSet || !layerFits(l))
         return -1;
+    if (s.added.size() >= std::size_t(file_limits::kMaxLayers)) {
+        s.beyondLimits = QStringLiteral("(more than %1 layers and folders)").arg(file_limits::kMaxLayers);
+        return -1;
+    }
+    const std::int64_t pixels = l.kind == DOODLEBOLD_LAYER_PIXELS ? std::int64_t{l.width} * l.height : 0;
+    const std::int64_t mask = l.has_mask ? std::int64_t{l.mask_width} * l.mask_height : 0;
+    if (!s.budget.take(pixels * file_limits::kPixelBytes + mask * std::int64_t{sizeof(std::uint16_t)})) {
+        s.beyondLimits = QStringLiteral("(layer %1)").arg(s.added.size() + 1);
+        return -1;
+    }
     const std::optional<LayerId> parent = parentFolder(s, l.parent);
     if (!parent)
         return -1;
@@ -410,6 +423,8 @@ FileResult<LoadedDocument> PluginFormat::read(QIODevice& device) const {
                                     note,
                                     setReadError};
     const int code = m_format.read(&host);
+    if (!s.beyondLimits.isEmpty())
+        return R::failure({FileError::Kind::TooLarge, s.beyondLimits});
     if (code != DOODLEBOLD_OK && s.tooLarge.isValid())
         return R::failure(FileError::canvasTooLarge(s.tooLarge, false));
     if (code != DOODLEBOLD_OK)

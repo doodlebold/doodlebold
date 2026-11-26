@@ -36,7 +36,7 @@ constexpr std::size_t kHeaderSize = 12;  // magic + version
 constexpr std::size_t kMaxManifest = 64u << 20;
 constexpr std::uint64_t kMaxChunk = 3u << 30;  // a layer of the largest canvas, uncompressed, is 2 GiB
 constexpr int kMaxDepth = LayerStack::kMaxFolderLevels;
-constexpr int kMaxLayers = 20000;
+constexpr int kMaxLayers = file_limits::kMaxLayers;
 constexpr int kLargestEverCanvasSide = 20000;
 
 constexpr char kManifestChunk[] = "MNFT";
@@ -272,6 +272,22 @@ void collectRastersPreorder(const LayerNode& n, std::vector<const LayerNode*>& o
         else
             out.push_back(&c);
     }
+}
+
+int nodesIn(const std::vector<LayerNode>& nodes) {
+    int count = 0;
+    for (const LayerNode& n : nodes)
+        count += 1 + nodesIn(n.children);
+    return count;
+}
+
+// The layers and folders the reader counts against kMaxLayers (TreeBuilder): the canvas's and every frame's.
+int layersIn(const DocumentContent& content) {
+    int count = nodesIn(content.state.layers.root().children);
+    for (const AnimationTrack& track : content.state.animation.tracks)
+        for (const AnimationFrame& frame : track.frames)
+            count += nodesIn(frame.layers);
+    return count;
 }
 
 std::vector<const LayerNode*> maskedFolders(const LayerNode& n) {
@@ -955,7 +971,7 @@ FileResult<Manifest> parseManifest(const QByteArray& compressed) {
     return out;
 }
 
-FileResult<> readLayerChunk(const Chunk& chunk, LayerNode& layer) {
+FileResult<> readLayerChunk(const Chunk& chunk, LayerNode& layer, file_limits::DecodeBudget& budget) {
     ByteReader r(chunk.payload, ByteOrder::Little);
     const std::uint32_t id = r.u32();
     const std::uint32_t count = r.u32();
@@ -965,6 +981,8 @@ FileResult<> readLayerChunk(const Chunk& chunk, LayerNode& layer) {
     const QRect tileArea = layer.pixels.tileRange(layer.pixels.paintArea());
     if (count > std::size_t(tileArea.width()) * std::size_t(tileArea.height()))
         return FileResult<>::failure(corrupt(QStringLiteral("(too many tiles in layer \"%1\")").arg(layer.props.name)));
+    if (!budget.take(std::int64_t{count} * std::int64_t{sizeof(Tile)}))
+        return FileResult<>::failure({FileError::Kind::TooLarge, QStringLiteral("(layer \"%1\")").arg(layer.props.name)});
 
     struct Pending {
         int tx, ty;
@@ -1119,13 +1137,23 @@ FileResult<> DoodleFormat::write(const DocumentContent& content, QIODevice& devi
     const Animation& animation = content.state.animation;
     head.u32(hasAnimation(animation) ? kAnimationVersion : kVersion);
     const bool recording = content.timelapse && !content.timelapse->isEmpty();
+    // Nothing is written that the reader would refuse: the file would save, then not open.
+    if (const int layers = layersIn(content); layers > kMaxLayers)
+        return FileResult<>::failure(
+            {FileError::Kind::TooLarge, QStringLiteral("(%1 layers and folders; a file holds at most %2)").arg(layers).arg(kMaxLayers)});
     if (!writeAll(device, head.data().constData(), head.data().size()) || !writeChunk(device, kManifestChunk, manifest(content)))
         return FileResult<>::failure(failed);
+    std::optional<FileError> refused;
     const auto writePixels = [&](const LayerNode& root) {
         std::vector<const LayerNode*> rasters;
         collectRastersPreorder(root, rasters);
         for (const LayerNode* layer : rasters) {
-            if (!writeChunk(device, kLayerChunk, layerPayload(*layer)))
+            const QByteArray payload = layerPayload(*layer);
+            if (std::uint64_t(payload.size()) > kMaxChunk) {
+                refused = FileError{FileError::Kind::TooLarge, QStringLiteral("(layer \"%1\")").arg(layer->props.name)};
+                return false;
+            }
+            if (!writeChunk(device, kLayerChunk, payload))
                 return false;
             if (layer->mask && !writeChunk(device, kMaskChunk, coveragePayload(*layer->mask, layer->props.id)))
                 return false;
@@ -1136,13 +1164,13 @@ FileResult<> DoodleFormat::write(const DocumentContent& content, QIODevice& devi
         return true;
     };
     if (!writePixels(content.state.layers.root()))
-        return FileResult<>::failure(failed);
+        return FileResult<>::failure(refused.value_or(failed));
     for (const AnimationTrack& track : animation.tracks) {
         for (const AnimationFrame& frame : track.frames) {
             LayerNode holder;
             holder.children = frame.layers;
             if (!writePixels(holder))
-                return FileResult<>::failure(failed);
+                return FileResult<>::failure(refused.value_or(failed));
         }
     }
     if (content.state.selection && !writeChunk(device, kSelectionChunk, coveragePayload(*content.state.selection)))
@@ -1187,6 +1215,7 @@ FileResult<LoadedDocument> DoodleFormat::read(QIODevice& device) const {
     Manifest description = parsed.value();
     DocumentContent& content = description.content;
 
+    file_limits::DecodeBudget budget;  // every layer's pixels, the canvas's and the frames' together
     // The pixels of a list of layers: LAYR (and LMSK) per raster layer in list order, then the folders' masks.
     const auto readPixels = [&](std::vector<LayerNode>& nodes) -> std::optional<FileError> {
         std::unordered_map<LayerId, LayerNode*> byId;
@@ -1209,7 +1238,7 @@ FileResult<LoadedDocument> DoodleFormat::read(QIODevice& device) const {
                 return chunk.error();
             if (!chunk.value().is(kLayerChunk))
                 return corrupt(QStringLiteral("(layer \"%1\" has no pixel data)").arg(layer->props.name));
-            if (auto done = readLayerChunk(chunk.value(), *layer); !done)
+            if (auto done = readLayerChunk(chunk.value(), *layer, budget); !done)
                 return done.error();
             if (layer->mask) {
                 auto maskChunk = readChunk(device);

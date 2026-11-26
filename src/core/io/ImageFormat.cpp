@@ -24,6 +24,9 @@ void raiseAllocationLimit() {
     });
 }
 
+// The most pixels one run-length packet of a TGA covers: its 7-bit count, plus one (the TGA specification).
+constexpr std::size_t kTgaPacketPixels = 128;
+
 // A picture read to be scaled down is decoded whole first (but a JPEG, which Qt decodes at the smaller size), up to 4 GB:
 // about 32768², twice the canvas limit each way.
 constexpr int kLargestScaledSourceMb = 4096;
@@ -76,10 +79,16 @@ QImage readTruecolourTga(const QByteArray& data, QSize* tooLarge, int largestSid
     const int bytes = depth / 8;
     const bool alpha = depth == 32 && (descriptor & 0x0F) != 0;
     const bool topDown = (descriptor & 0x20) != 0, rightToLeft = (descriptor & 0x10) != 0;
+    const std::size_t pixels = static_cast<std::size_t>(width) * static_cast<std::size_t>(height);
+    // Checked before the picture is made, as a header can claim any size: the file must hold at least what that size takes. A
+    // run-length packet is a header byte and one pixel at least, for up to kTgaPacketPixels pixels.
+    const std::size_t least = imageType == 2 ? pixels * static_cast<std::size_t>(bytes)
+                                             : (pixels + kTgaPacketPixels - 1) / kTgaPacketPixels * (1 + static_cast<std::size_t>(bytes));
+    if (!r.ok() || r.remaining() < least)
+        return {};
     QImage out(width, height, alpha ? QImage::Format_RGBA8888 : QImage::Format_RGB888);
     if (out.isNull())
         return {};
-    const std::size_t pixels = static_cast<std::size_t>(width) * static_cast<std::size_t>(height);
     const auto store = [&](std::size_t index, const std::uint8_t* p) {
         const int y0 = static_cast<int>(index / static_cast<std::size_t>(width));
         const int x0 = static_cast<int>(index % static_cast<std::size_t>(width));

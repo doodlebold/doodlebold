@@ -78,7 +78,7 @@ constexpr std::uint64_t kMaxFile = 1500ull << 20;
 constexpr int kMaxLayers = 8189;  // also what fits comfortably in Photoshop
 constexpr int kMaxDepth = LayerStack::kMaxFolderLevels;
 constexpr int kMaxLayerSide = 60000;
-constexpr std::uint64_t kMaxLayerArea = std::uint64_t(kMaxCanvasSide) * kMaxCanvasSide;
+constexpr std::uint64_t kMaxLayerArea = file_limits::kMaxLayerPixels;
 
 // Image resource that carries the canvas background (a block in Adobe's range for plug-ins, 4000-4999): a format byte, the
 // mode (the eight BackgroundMode entries) and the colour of the Color modes.
@@ -371,7 +371,7 @@ QImage pictureFromPlanes(const QByteArray* r, const QByteArray* g, const QByteAr
     return img;
 }
 
-FileResult<TiledImage> layerPixels(const ParsedLayer& l, const Header& h, const QSize& canvas) {
+FileResult<TiledImage> layerPixels(const ParsedLayer& l, const Header& h, const QSize& canvas, file_limits::DecodeBudget& budget) {
     using R = FileResult<TiledImage>;
     const std::int64_t w = l.width(), hgt = l.height();
     if (w == 0 || hgt == 0)
@@ -381,6 +381,8 @@ FileResult<TiledImage> layerPixels(const ParsedLayer& l, const Header& h, const 
     const QRect rect(l.left, l.top, static_cast<int>(w), static_cast<int>(hgt));
     if (!rect.intersects(QRect(QPoint(0, 0), canvas)))
         return TiledImage(canvas);
+    if (!budget.take(w * hgt * file_limits::kPixelBytes))
+        return R::failure({FileError::Kind::TooLarge, QStringLiteral("(layer \"%1\")").arg(l.unicodeName.value_or(l.name))});
     const int bps = h.depth / 8;
     QByteArray planes[4];
     bool have[4] = {false, false, false, false};
@@ -647,6 +649,7 @@ FileResult<LoadedDocument> readImpl(QIODevice& device) {
 
     // Layers arrive bottom → top; a section end marker opens a folder frame and the folder's own record closes it.
     std::vector<std::vector<LayerNode>> frames(1);
+    file_limits::DecodeBudget budget;  // every layer's pixels together
     for (const ParsedLayer& l : layers) {
         if (l.sectionType == 3) {
             if (static_cast<int>(frames.size()) > kMaxDepth)
@@ -678,7 +681,7 @@ FileResult<LoadedDocument> readImpl(QIODevice& device) {
         }
         LayerNode layer = stack.makeRaster({});
         applyProps(layer.props, l, false, out.notes, unknownModes);
-        auto pixels = layerPixels(l, h, canvas);
+        auto pixels = layerPixels(l, h, canvas, budget);
         if (!pixels)
             return R::failure(pixels.error());
         layer.pixels = pixels.value();
@@ -738,6 +741,10 @@ struct Planes {
 Planes extractPlanes(const TiledImage& img) {
     Planes p;
     p.rect = img.contentBounds(true);
+    // What lies past the canvas's edge goes along while the layer stays within what the reader opens (kMaxLayerArea); past that
+    // only the canvas's part is written, or the saved file wouldn't open again.
+    if (static_cast<std::uint64_t>(p.rect.width()) * static_cast<std::uint64_t>(p.rect.height()) > kMaxLayerArea)
+        p.rect &= img.rect();
     if (p.rect.isEmpty())
         return p;
     const std::size_t n = static_cast<std::size_t>(p.rect.width()) * static_cast<std::size_t>(p.rect.height());
@@ -1052,6 +1059,12 @@ FileResult<> PsdFormat::write(const DocumentContent& content, QIODevice& device,
         out.bytes(counts.data());
         out.bytes(rows.data());
 
+        // Not written past what the reader opens (kMaxFile): the save would succeed and the file not open again. Being below 4 GiB,
+        // it also keeps a PSD's 32-bit section lengths from wrapping.
+        if (static_cast<std::uint64_t>(out.data().size()) > kMaxFile)
+            return R::failure({FileError::Kind::TooLarge, QStringLiteral("(the file would be %1 MB; at most %2 MB opens again)")
+                                                              .arg(out.data().size() >> 20)
+                                                              .arg(kMaxFile >> 20)});
         if (device.write(out.data()) != out.data().size())
             return R::failure({FileError::Kind::CannotWrite, device.errorString()});
         return {};
