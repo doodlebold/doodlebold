@@ -1626,7 +1626,7 @@ void StampLayer::layDirectBatch(std::size_t first, std::size_t end) {
         }
         tableReach[i - first] = reach;
     }
-    area &= direct.layer.paintArea();
+    area &= direct.layer.rect();  // painting stops at the canvas's edge
     if (area.isEmpty())
         return;
     m_dirty |= area;

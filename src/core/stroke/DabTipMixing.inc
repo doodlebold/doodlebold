@@ -103,6 +103,8 @@ template <typename Read> Premultiplied DabPainter::averageOverMask(const Dab& da
     // The sample places step by adding, as the brush pixels were saved with: x0 + i * step would round differently.
     for (double y = area.top() + 0.5; y <= area.bottom(); y += step) {  // NOLINT(bugprone-float-loop-counter)
         for (double x = area.left() + 0.5; x <= area.right(); x += step) {  // NOLINT(bugprone-float-loop-counter)
+            if (!m_layer.rect().contains(static_cast<int>(x), static_cast<int>(y)))
+                continue;  // only what's on the canvas is picked up: painting stops at its edge
             bool touched = false;
             for (std::size_t k = 0; k < dab.count && !touched; ++k) {
                 const Stamp& stamp = m_stamps[dab.first + k];
@@ -136,6 +138,8 @@ Premultiplied DabPainter::pickUpOverEvent(const std::vector<Stamp>& stamps) cons
     // The sample places step by adding, as the brush pixels were saved with: x0 + i * step would round differently.
     for (double y = area.top() + 0.5; y <= area.bottom(); y += step) {  // NOLINT(bugprone-float-loop-counter)
         for (double x = area.left() + 0.5; x <= area.right(); x += step) {  // NOLINT(bugprone-float-loop-counter)
+            if (!m_layer.rect().contains(static_cast<int>(x), static_cast<int>(y)))
+                continue;  // only what's on the canvas is picked up: painting stops at its edge
             bool touched = false;
             for (std::size_t k = 0; k < stamps.size() && !touched; ++k) {
                 const Stamp& stamp = stamps[k];
@@ -185,6 +189,8 @@ template <typename Read> Premultiplied DabPainter::averageUnder(const Dab& dab, 
     // The sample places step by adding, as the brush pixels were saved with: x0 + i * step would round differently.
     for (double y = area.top() + 0.5; y <= area.bottom(); y += step) {  // NOLINT(bugprone-float-loop-counter)
         for (double x = area.left() + 0.5; x <= area.right(); x += step) {  // NOLINT(bugprone-float-loop-counter)
+            if (!m_layer.rect().contains(static_cast<int>(x), static_cast<int>(y)))
+                continue;  // only what's on the canvas is picked up: painting stops at its edge
             const float w =
                 stampMark(middle, m_tip.edge, static_cast<float>(std::hypot(x - middle.centre.x(), y - middle.centre.y()))).shape;
             if (w > 0.0f)

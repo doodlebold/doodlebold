@@ -22,6 +22,26 @@ namespace doodlebold {
 
 namespace {
 
+// Painting stops at the canvas's edge. A tile reaching past it keeps there what the layer held before the stroke, which may be
+// content moved off the canvas; on the canvas it is the stroke's to the bit.
+TilePtr keptOnCanvas(TilePtr fresh, const TilePtr& before, TileCoord coord, const QRect& canvas) {
+    const QRect tile = coord.pixelRect();
+    if (!fresh || canvas.contains(tile))
+        return fresh;
+    auto kept = std::make_shared<Tile>(*fresh);
+    const QRect inside = tile.intersected(canvas).translated(-tile.topLeft());
+    for (int y = 0; y < Tile::kSize; ++y)
+        for (int x = 0; x < Tile::kSize; ++x)
+            if (!inside.contains(x, y)) {
+                Channel* p = kept->at(x, y);
+                if (before)
+                    std::copy_n(before->at(x, y), 4, p);
+                else
+                    std::fill_n(p, 4, Channel{0});
+            }
+    return kept;
+}
+
 // Every `/ 100.0` below turns a panel setting's percent into a share, and every `/ 255.0` an 8-bit value into one.
 // Sharpness's range: the full point F = 1 - exp(-kSoftDensity · (kHardDensity / kSoftDensity)^s), a "really soft" at 0 % with
 // the centre still solid.
@@ -1016,7 +1036,7 @@ TileMap RebuiltStroke::end() {
 }
 
 QRect RebuiltStroke::show() {
-    const QRect dirty = m_evaluator->takeDirty().intersected(m_target->paintArea());
+    const QRect dirty = m_evaluator->takeDirty().intersected(m_target->rect());
     std::vector<TileMergeJob> jobs;
     for (const TileCoord coord : m_evaluator->takeChangedTiles()) {
         if (dirty.intersects(coord.pixelRect()))
@@ -1026,14 +1046,14 @@ QRect RebuiltStroke::show() {
         return {};
     mergeTiles(jobs, m_paint);
     for (TileMergeJob& job : jobs)
-        m_target->setTile(job.coord.x, job.coord.y, std::move(job.fresh));
+        m_target->setTile(job.coord.x, job.coord.y, keptOnCanvas(std::move(job.fresh), job.before, job.coord, m_target->rect()));
     return dirty;
 }
 
 void RebuiltStroke::listTileToShow(TileCoord coord, std::vector<TileMergeJob>& jobs) {
     const TilePtr painted = m_evaluator->paintedTile(coord);
     const auto density = m_buffer.tiles().find(coord);
-    if (!painted && density == m_buffer.tiles().end())
+    if ((!painted && density == m_buffer.tiles().end()) || !m_target->rect().intersects(coord.pixelRect()))
         return;
     const SelectionTile* selected = m_selection ? m_selection->tile(coord.x, coord.y) : nullptr;
     if (m_selection && !selected)
@@ -1055,13 +1075,15 @@ QRect RebuiltStroke::showNow() {
         for (auto& [coord, block] : frame.blocks)
             m_shownBlocks[coord] = std::move(block);
     }
-    const QRect area = frame.area.intersected(m_target->paintArea());
+    const QRect area = frame.area.intersected(m_target->rect());
     // The shown region is made once from all the tiles' rects: adding them one by one costs more with each.
     std::vector<QRect> shown;
     shown.reserve(frame.tiles.size());
     for (auto& [coord, tile] : frame.tiles) {
-        m_before.try_emplace(coord, m_target->tileShared(coord.x, coord.y));
-        m_target->setTile(coord.x, coord.y, std::move(tile));
+        if (!m_target->rect().intersects(coord.pixelRect()))
+            continue;  // wholly past the canvas's edge, where painting doesn't reach
+        const auto [before, isNew] = m_before.try_emplace(coord, m_target->tileShared(coord.x, coord.y));
+        m_target->setTile(coord.x, coord.y, keptOnCanvas(std::move(tile), before->second, coord, m_target->rect()));
         if (const QRect part = coord.pixelRect().intersected(area); !part.isEmpty())
             shown.push_back(part);
     }

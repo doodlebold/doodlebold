@@ -65,7 +65,8 @@ bool DabPainter::writesWhole(const Dab& dab, TileCoord coord, Reach& reach) cons
     return false;
 }
 
-std::vector<DabPainter::Laying> DabPainter::layingsFor(const QRect& area, bool onlyReached, const Dab* dab) {
+std::vector<DabPainter::Laying> DabPainter::layingsFor(const QRect& wanted, bool onlyReached, const Dab* dab) {
+    const QRect area = wanted & m_layer.rect();  // painting stops at the canvas's edge (the Smudge reaches past its dab's area)
     std::vector<std::pair<std::unique_ptr<Reach>*, TileCoord>> fresh;
     std::vector<TileCoord> coords;
     struct Copy {

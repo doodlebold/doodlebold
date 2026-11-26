@@ -243,6 +243,8 @@ void DabPainter::layDab(std::size_t first, std::size_t count, std::size_t pen) {
         const int margin = static_cast<int>(kReadReachCells) * m_gridCell;
         dab.area.adjust(-margin, -margin, margin, margin);
     }
+    // Painting stops at the canvas's edge: a dab past it lays nothing there, nor reads its own paint back from there.
+    dab.area &= m_layer.rect();
     paintDab(dab);
     m_painted = first + count;
     forgetOldStamps();
