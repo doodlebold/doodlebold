@@ -34,6 +34,17 @@ NewPluginAnswer askAboutNew(QWidget* parent, const QString& path) {
     return box.clickedButton() == never ? NewPluginAnswer::Never : NewPluginAnswer::NotNow;
 }
 
+bool keepWaitingFor(QWidget* parent, const QString& plugin) {
+    QMessageBox box(QMessageBox::Question, tr("A Plugin Isn't Answering"),
+                    tr("The plugin %1 has sent nothing for a while. A large file can take long. Wait for it, or stop it?").arg(plugin),
+                    QMessageBox::NoButton, parent);
+    QAbstractButton* wait = box.addButton(tr("Wait"), QMessageBox::AcceptRole);
+    box.addButton(tr("Stop It"), QMessageBox::RejectRole);
+    box.setDefaultButton(qobject_cast<QPushButton*>(wait));
+    box.exec();
+    return box.clickedButton() == wait;
+}
+
 bool keepOffAfterCrash(QWidget* parent, const QString& path) {
     QMessageBox box(QMessageBox::Warning, tr("A Plugin Crashed"),
                     tr("When Doodlebold last ran, it crashed inside the plugin\n\n%1\n\nIt wasn't loaded this time. Keep it turned off? "

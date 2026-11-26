@@ -19,8 +19,12 @@
 #define WIN32_LEAN_AND_MEAN
 #define NOMINMAX
 #include <windows.h>
+
+#include <fcntl.h>
+#include <io.h>
 #else
 #include <dlfcn.h>
+#include <fcntl.h>
 #include <poll.h>
 #include <unistd.h>
 #endif
@@ -79,10 +83,13 @@ bool waitForInput(int ms) {
     return false;
 }
 #else
+int g_in = -1;
+int g_out = -1;
+
 bool readExact(void* data, std::size_t size) {
     auto* p = static_cast<char*>(data);
     while (size > 0) {
-        const ssize_t got = ::read(0, p, size);
+        const ssize_t got = ::read(g_in, p, size);
         if (got <= 0)
             return false;
         p += got;
@@ -94,7 +101,7 @@ bool readExact(void* data, std::size_t size) {
 bool writeAll(const void* data, std::size_t size) {
     const auto* p = static_cast<const char*>(data);
     while (size > 0) {
-        const ssize_t put = ::write(1, p, size);
+        const ssize_t put = ::write(g_out, p, size);
         if (put <= 0)
             return false;
         p += put;
@@ -104,7 +111,7 @@ bool writeAll(const void* data, std::size_t size) {
 }
 
 bool waitForInput(int ms) {
-    pollfd in{0, POLLIN, 0};
+    pollfd in{g_in, POLLIN, 0};
     return ::poll(&in, 1, ms) != 0;
 }
 #endif
@@ -265,20 +272,31 @@ int getComposite(void*, std::uint16_t* out, std::size_t stride) {
     return getPlane(Plane::Composite, 0, out, stride, g_writeHost->width, g_writeHost->height, 8);
 }
 
+// The plugin's writes, gathered: a plugin may write a row or a pixel at a time, and each message waits for Doodlebold's answer.
+// Sent when this much has gathered, and at the end of the write: a piece well within a message.
+constexpr std::size_t kWritePiece = 8u << 20;
+Bytes g_pendingWrite;
+bool g_writeRefused = false;  // Doodlebold refused a piece: every later write fails, and so does the save
+
+void sendPendingWrite() {
+    if (g_pendingWrite.data().empty() || g_writeRefused)
+        return;
+    send(Message::WriteBytes, g_pendingWrite);
+    g_pendingWrite = Bytes();
+    g_writeRefused = !awaitReply();
+}
+
 int writeBytes(void*, const void* bytes, std::size_t size) {
     const auto* p = static_cast<const std::uint8_t*>(bytes);
-    constexpr std::size_t kMostPiece = kMostMessageBytes / 2;  // a piece of the file to append, well within a message
-    while (size > 0) {
-        const std::size_t piece = std::min(size, kMostPiece);
-        Bytes b;
-        b.putBytes(p, piece);
-        send(Message::WriteBytes, b);
-        if (!awaitReply())
-            return 0;
+    while (size > 0 && !g_writeRefused) {
+        const std::size_t piece = std::min(size, kWritePiece - g_pendingWrite.data().size());
+        g_pendingWrite.putBytes(p, piece);
         p += piece;
         size -= piece;
+        if (g_pendingWrite.data().size() >= kWritePiece)
+            sendPendingWrite();
     }
-    return 1;
+    return g_writeRefused ? 0 : 1;
 }
 
 // ---- The calls Doodlebold asks for ----
@@ -355,20 +373,45 @@ void write(Bytes& body) {
     host.get_pixels = getPixels, host.get_mask = getMask, host.get_composite = getComposite;
     host.write = writeBytes, host.set_error = setError;
     g_writeHost = &host;
-    Bytes done;
-    done.put(static_cast<std::int32_t>(f->write ? f->write(&host) : DOODLEBOLD_ERROR_UNSUPPORTED));
+    g_pendingWrite = Bytes();
+    g_writeRefused = false;
+    const std::int32_t result = f->write ? f->write(&host) : DOODLEBOLD_ERROR_UNSUPPORTED;
+    sendPendingWrite();
     g_writeHost = nullptr;
+    Bytes done;
+    done.put(result == DOODLEBOLD_OK && g_writeRefused ? std::int32_t{DOODLEBOLD_ERROR_WRITE_FAILED} : result);
     send(Message::WriteDone, done);
 }
 
 }
 
-int main(int argc, char** argv) {
+// The protocol keeps copies of standard input and output of its own, and the plugin's standard input and output become the null
+// device: a plugin that prints, or reads its input, would otherwise break the messages.
+bool takeStandardStreams() {
 #ifdef _WIN32
-    g_in = GetStdHandle(STD_INPUT_HANDLE);
-    g_out = GetStdHandle(STD_OUTPUT_HANDLE);
-
+    const auto own = [](DWORD which) {
+        HANDLE copy = nullptr;
+        DuplicateHandle(GetCurrentProcess(), GetStdHandle(which), GetCurrentProcess(), &copy, 0, FALSE, DUPLICATE_SAME_ACCESS);
+        return copy;
+    };
+    g_in = own(STD_INPUT_HANDLE);
+    g_out = own(STD_OUTPUT_HANDLE);
+    const int null = _open("NUL", _O_RDWR);
+    if (!g_in || !g_out || null < 0 || _dup2(null, 0) != 0 || _dup2(null, 1) != 0)
+        return false;
+    const auto nullHandle = reinterpret_cast<HANDLE>(_get_osfhandle(null));
+    return SetStdHandle(STD_INPUT_HANDLE, nullHandle) && SetStdHandle(STD_OUTPUT_HANDLE, nullHandle);
+#else
+    g_in = fcntl(0, F_DUPFD_CLOEXEC, 3);
+    g_out = fcntl(1, F_DUPFD_CLOEXEC, 3);
+    const int null = open("/dev/null", O_RDWR | O_CLOEXEC);
+    return g_in >= 0 && g_out >= 0 && null >= 0 && dup2(null, 0) == 0 && dup2(null, 1) == 1;
 #endif
+}
+
+int main(int argc, char** argv) {
+    if (!takeStandardStreams())
+        endHelper(1);
     if (const char* why = restrictBeforeLoading(argc, argv))
         sendText(Message::Failed, why), endHelper(1);
     const doodlebold_plugin* plugin = nullptr;

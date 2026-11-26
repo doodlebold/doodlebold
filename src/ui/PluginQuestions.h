@@ -17,6 +17,10 @@ enum class NewPluginAnswer {
 // A plugin file not seen before, or changed since the user's yes.
 NewPluginAnswer askAboutNew(QWidget* parent, const QString& path);
 
+// The plugin has sent nothing for a while (io::PluginHost::hangSeconds): true to keep waiting, false to stop it. Nothing is stopped
+// without asking, as a large file can take long.
+bool keepWaitingFor(QWidget* parent, const QString& plugin);
+
 // Doodlebold crashed in this plugin when it last ran: true to keep it off, false to load it again.
 bool keepOffAfterCrash(QWidget* parent, const QString& path);
 

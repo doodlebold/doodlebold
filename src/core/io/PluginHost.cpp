@@ -56,6 +56,9 @@ constexpr std::chrono::milliseconds kReplaceIdleAfter{55000};
 // How often a waiting call looks for the helper's answer, in ms: short beside the hang time, and a wait costs no work.
 constexpr int kWaitSliceMs = 100;
 
+// How long a wait for the helper only yields before it sleeps, in ms: a reply to a callback usually comes within it.
+[[maybe_unused]] constexpr int kSpinMs = 2;
+
 // The hang time, the owner's choice: a helper silent this long, the user is asked to wait or stop it.
 constexpr int kDefaultHangSeconds = 15;
 
@@ -303,7 +306,11 @@ qint64 PluginHost::Process::readSome(char* data, std::size_t size, int ms) {
         }
         if (clock.elapsed() >= ms)
             return 0;
-        Sleep(1);
+        // A quick answer is met at once; past that the wait sleeps, as Sleep(1) lasts the system's tick (about 15 ms).
+        if (clock.elapsed() < kSpinMs)
+            SwitchToThread();
+        else
+            Sleep(1);
     }
 }
 
@@ -740,6 +747,7 @@ int PluginHost::write(std::uint32_t format, const doodlebold_write_host* host) {
 }
 
 int PluginHost::relayWrite(const doodlebold_write_host* host) {
+    bool refused = false;  // a piece of the file this side couldn't write: the save fails, whatever the helper says
     for (;;) {
         std::uint32_t type = 0;
         QByteArray body;
@@ -783,14 +791,19 @@ int PluginHost::relayWrite(const doodlebold_write_host* host) {
         }
         case pp::Message::WriteBytes: {
             pp::Bytes reply;
-            reply.put(static_cast<std::int32_t>(host->write(host->context, body.constData(), std::size_t(body.size()))));
+            const int written = host->write(host->context, body.constData(), std::size_t(body.size()));
+            refused = refused || !written;
+            reply.put(static_cast<std::int32_t>(written));
             send(std::uint32_t(pp::Message::Reply), bytesOf(reply));
             break;
         }
         case pp::Message::SetError:
             host->set_error(host->context, b.getText().value_or(std::string()).c_str());
             break;
-        case pp::Message::WriteDone: return b.get<std::int32_t>().value_or(DOODLEBOLD_ERROR_WRITE_FAILED);
+        case pp::Message::WriteDone: {
+            const std::int32_t result = b.get<std::int32_t>().value_or(DOODLEBOLD_ERROR_WRITE_FAILED);
+            return result == DOODLEBOLD_OK && refused ? DOODLEBOLD_ERROR_WRITE_FAILED : result;
+        }
         case pp::Message::Failed:
             return stopped(host->context, host->set_error,
                            tr("(the plugin %1 can't run: %2)").arg(m_label, QString::fromStdString(b.getText().value_or(std::string()))));
