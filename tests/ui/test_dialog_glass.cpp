@@ -17,6 +17,7 @@
 #include <QLabel>
 #include <QLayout>
 #include <QPainter>
+#include <QPlatformSurfaceEvent>
 #include <QMessageBox>
 #include <QProgressDialog>
 #include <QStandardPaths>
@@ -165,6 +166,57 @@ TEST_F(DialogGlassTest, AWindowMadeBeforeThePolishIsMadeAgainWithAlpha) {
 #endif
             dialog->hide();
         }
+    qApp->removeEventFilter(&glass);
+}
+
+namespace {
+
+// Polishes the dialog from inside the making of its window, as its layout does on Windows when the window is handed a size
+// of its own.
+class PolishWhileMade : public QObject {
+public:
+    explicit PolishWhileMade(QWidget* dialog) : m_dialog(dialog) {}
+    bool polished = false;
+    bool destroyed = false;
+
+protected:
+    bool eventFilter(QObject* watched, QEvent* event) override {
+        if (event->type() != QEvent::PlatformSurface || watched != m_dialog->windowHandle())
+            return false;
+        if (static_cast<QPlatformSurfaceEvent*>(event)->surfaceEventType() == QPlatformSurfaceEvent::SurfaceAboutToBeDestroyed) {
+            destroyed = true;
+        } else if (!polished) {
+            polished = true;
+            m_dialog->ensurePolished();
+        }
+        return false;
+    }
+
+private:
+    QWidget* m_dialog;
+};
+
+}
+
+// Destroying a window Qt is still making crashed it, as when picking the canvas's background colour.
+TEST_F(DialogGlassTest, APolishWhileTheWindowIsMadeLeavesTheWindowAlone) {
+    GlassPopups glass([](QWindow*, const QRegion&) { return true; });
+    qApp->installEventFilter(&glass);
+    QColorDialog dialog;
+    dialog.setOption(QColorDialog::DontUseNativeDialog);
+    PolishWhileMade polish(&dialog);
+    qApp->installEventFilter(&polish);
+    dialog.winId();
+    qApp->removeEventFilter(&polish);
+    ASSERT_TRUE(polish.polished);
+    EXPECT_FALSE(polish.destroyed) << "the window was destroyed while it was being made";
+    EXPECT_FALSE(dialog.property("glass").toBool());
+
+    dialog.show();
+    QApplication::processEvents();
+    dialog.hide();
+    QApplication::processEvents();
+    EXPECT_TRUE(dialog.property("glass").toBool()) << "glass from its next showing";
     qApp->removeEventFilter(&glass);
 }
 
