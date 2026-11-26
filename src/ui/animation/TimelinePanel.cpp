@@ -1236,6 +1236,8 @@ void TimelinePanel::showTrackMenu(int track, const QPoint& globalPos) {
     remove->setEnabled(!(t.isDrawn() && framesTracks < 2) && !t.locked);
     if (clear)
         clear->setEnabled(!t.locked);
+    // Kept before the menu runs: playing on under it replaces the document's state, and `t` with it.
+    const bool wasHidden = t.hidden, wasLocked = t.locked;
     QAction* chosen = menu.exec(globalPos);
     if (!chosen)
         return;
@@ -1246,9 +1248,9 @@ void TimelinePanel::showTrackMenu(int track, const QPoint& globalPos) {
     else if (chosen == down)
         report(m_doc->moveTrack(track, track - 1));
     else if (chosen == hide)
-        emit trackHiddenRequested(track, !t.hidden);
+        emit trackHiddenRequested(track, !wasHidden);
     else if (chosen == lock)
-        emit trackLockedRequested(track, !t.locked);
+        emit trackLockedRequested(track, !wasLocked);
     else if (chosen == fold)
         toggleCollapsed(track);
     else if (const auto it = labels.find(chosen); it != labels.end())

@@ -19,10 +19,19 @@
 
 #include <algorithm>
 #include <chrono>
+#include <optional>
 
 namespace doodlebold {
 
 namespace {
+
+// A copy, not a reference: an edit replaces the document's state, and with it the clip list a reference would point into.
+std::optional<SoundClip> soundClip(const Animation& a, int id) {
+    for (const SoundClip& c : a.sounds)
+        if (c.id == id)
+            return c;
+    return std::nullopt;
+}
 
 // The clips that play and are exported: none of a hidden sound track, and no muted one.
 std::vector<SoundClip> heardSounds(const Animation& a) {
@@ -287,10 +296,10 @@ void AnimationController::setLoop(bool loop) {
 void AnimationController::setSoundStart(int id, double seconds) {
     if (!m_doc)
         return;
-    const Animation& a = m_doc->animation();
-    for (const SoundClip& c : a.sounds)
-        if (c.id == id)
-            report(m_doc->moveSound(id, static_cast<int>(std::lround(std::max(0.0, seconds) * a.fps)), c.track));
+    const std::optional<SoundClip> c = soundClip(m_doc->animation(), id);
+    if (!c)
+        return;
+    report(m_doc->moveSound(id, static_cast<int>(std::lround(std::max(0.0, seconds) * m_doc->animation().fps)), c->track));
 }
 
 // End At: the clip stops at `seconds` from the first frame (trimming its end, or giving back what was trimmed); at least a
@@ -298,18 +307,18 @@ void AnimationController::setSoundStart(int id, double seconds) {
 void AnimationController::setSoundEnd(int id, double seconds) {
     if (!m_doc)
         return;
-    const Animation& a = m_doc->animation();
-    for (const SoundClip& c : a.sounds) {
-        if (c.id != id)
-            continue;
-        const double played = seconds - c.startSeconds(a.fps);
-        if (played * a.fps < 1.0 - 1e-6) {
-            emit refused(tr("A sound ends at least a beat after it starts (%1 s).").arg(c.startSeconds(a.fps) + 1.0 / a.fps, 0, 'f', 2));
-            return;
-        }
-        const double trimEnd = std::max(0.0, c.seconds - c.trimStart - played);
-        report(m_doc->trimSound(id, c.startBeat, c.trimStart, trimEnd));
+    const std::optional<SoundClip> found = soundClip(m_doc->animation(), id);
+    if (!found)
+        return;
+    const SoundClip& c = *found;
+    const double fps = m_doc->animation().fps;
+    const double played = seconds - c.startSeconds(fps);
+    if (played * fps < 1.0 - 1e-6) {
+        emit refused(tr("A sound ends at least a beat after it starts (%1 s).").arg(c.startSeconds(fps) + 1.0 / fps, 0, 'f', 2));
+        return;
     }
+    const double trimEnd = std::max(0.0, c.seconds - c.trimStart - played);
+    report(m_doc->trimSound(id, c.startBeat, c.trimStart, trimEnd));
 }
 
 bool AnimationController::keepOnlyThisFrame() {
