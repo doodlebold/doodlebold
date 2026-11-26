@@ -46,21 +46,31 @@ bool hasInk(const TiledImage& image, const QRect& area) {
     return false;
 }
 
+// A stroke across the canvas's middle, then the layer moved left by `shift`: paint stops at the canvas's edge, but a move takes
+// a layer's content past it.
+void paintAndMoveLeft(Document& doc, LayerId layer, double y, int shift) {
+    stroke(doc, ToolType::Pencil, QPointF(20, y), QPointF(180, y));
+    ASSERT_TRUE(doc.moveLayerExactly(layer, transform::Turn::None, QPoint(-shift, 0)).ok());
 }
 
-TEST(OffCanvas, AStrokeLeavingTheCanvasKeepsDrawing) {
+// px the layer is moved left by, so the stroke's left part lies well past the canvas's edge
+constexpr int kShift = 150;
+
+}
+
+TEST(OffCanvas, AStrokeLeavingTheCanvasStopsAtItsEdge) {
     Document doc(kCanvas, Qt::white);
     const LayerId layer = doc.currentLayerId();
     stroke(doc, ToolType::Pencil, QPointF(100, 75), QPointF(-120, 75));
     const TiledImage& pixels = doc.layer(layer)->pixels;
-    EXPECT_TRUE(hasInk(pixels, QRect(50, 70, 20, 10))) << "on the canvas";
-    EXPECT_TRUE(hasInk(pixels, QRect(-110, 70, 20, 10))) << "past its left edge";
-    EXPECT_LE(pixels.contentBounds(true).left(), -110);
+    EXPECT_TRUE(hasInk(pixels, QRect(0, 70, 20, 10))) << "up to the edge";
+    EXPECT_FALSE(hasInk(pixels, QRect(-110, 70, 20, 10))) << "past its left edge";
+    EXPECT_EQ(pixels.contentBounds(true).left(), 0);
 
     ASSERT_TRUE(doc.undo().ok());
     EXPECT_TRUE(doc.layer(layer)->pixels.isEmpty()) << "one undo step takes all of it";
     ASSERT_TRUE(doc.redo().ok());
-    EXPECT_TRUE(hasInk(doc.layer(layer)->pixels, QRect(-110, 70, 20, 10)));
+    EXPECT_TRUE(hasInk(doc.layer(layer)->pixels, QRect(0, 70, 20, 10)));
 }
 
 TEST(OffCanvas, EveryToolPaintsPastAllFourEdgesWithoutHarm) {
@@ -88,22 +98,23 @@ TEST(OffCanvas, OnlyWhatReachesTheCanvasShows) {
 TEST(OffCanvas, MovingTheLayerBringsItBack) {
     Document doc(kCanvas, Qt::white);
     const LayerId layer = doc.currentLayerId();
-    stroke(doc, ToolType::Pencil, QPointF(60, 75), QPointF(-120, 75));
+    paintAndMoveLeft(doc, layer, 75, kShift);
     const QRect bounds = doc.layer(layer)->pixels.contentBounds(true);
     ASSERT_LT(bounds.left(), -100);
+    EXPECT_EQ(doc.projection().pixelColor(100, 75), QColor(Qt::white)) << "the stroke went left with the layer";
 
-    ASSERT_TRUE(doc.moveLayerExactly(layer, transform::Turn::None, QPoint(150, 0)).ok());
+    ASSERT_TRUE(doc.moveLayerExactly(layer, transform::Turn::None, QPoint(kShift, 0)).ok());
     const TiledImage& moved = doc.layer(layer)->pixels;
-    EXPECT_EQ(moved.contentBounds(true), bounds.translated(150, 0)) << "all of it moved";
+    EXPECT_EQ(moved.contentBounds(true), bounds.translated(kShift, 0)) << "all of it moved";
     EXPECT_NE(doc.projection().pixelColor(40, 75), QColor(Qt::white)) << "what was past the edge shows now";
 }
 
 TEST(OffCanvas, MergingKeepsWhatIsPastTheCanvas) {
     Document doc(kCanvas, Qt::white);
     const LayerId low = doc.currentLayerId();
-    stroke(doc, ToolType::Pencil, QPointF(60, 40), QPointF(-120, 40));
+    paintAndMoveLeft(doc, low, 40, kShift);
     const LayerId high = doc.addLayer().value();
-    stroke(doc, ToolType::Pencil, QPointF(60, 90), QPointF(-120, 90));
+    paintAndMoveLeft(doc, high, 90, kShift);
     ASSERT_TRUE(doc.mergeDown(high).ok());
     EXPECT_TRUE(hasInk(doc.layer(low)->pixels, QRect(-110, 35, 20, 10)));
     EXPECT_TRUE(hasInk(doc.layer(low)->pixels, QRect(-110, 85, 20, 10)));
@@ -111,7 +122,7 @@ TEST(OffCanvas, MergingKeepsWhatIsPastTheCanvas) {
 
 TEST(OffCanvas, ACopyTakesOnlyTheCanvas) {
     Document doc(kCanvas, Qt::white);
-    stroke(doc, ToolType::Pencil, QPointF(60, 75), QPointF(-120, 75));
+    paintAndMoveLeft(doc, doc.currentLayerId(), 75, kShift);
     const auto copied = doc.copy(doc.currentLayerId());
     ASSERT_TRUE(copied.ok());
     EXPECT_LE(copied.value().image.width(), kCanvas.width());
@@ -153,8 +164,9 @@ TEST(OffCanvas, TheSelectionPenStopsAtTheCanvas) {
 TEST(OffCanvas, ADoodleFileKeepsItAndAPsdOpens) {
     Document doc(kCanvas, Qt::white);
     const LayerId layer = doc.currentLayerId();
-    stroke(doc, ToolType::Pencil, QPointF(60, 75), QPointF(-120, 75));
+    paintAndMoveLeft(doc, layer, 75, kShift);
     const QRect bounds = doc.layer(layer)->pixels.contentBounds(true);
+    ASSERT_LT(bounds.left(), 0);
     DocumentContent content = doc.content();
 
     QBuffer doodle;
