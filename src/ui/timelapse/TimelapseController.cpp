@@ -24,6 +24,7 @@ namespace doodlebold {
 namespace {
 
 const QString kFfmpegPathKey = QStringLiteral("ffmpeg/path");
+const QString kFfmpegApprovedKey = QStringLiteral("ffmpeg/approvedOnPath");  // the PATH's ffmpeg the user said yes to
 
 class WaitCursor {
 public:
@@ -56,7 +57,8 @@ std::optional<FfmpegTools> TimelapseController::tools(bool ask) {
         Result<FfmpegTools, FfmpegError> found = Result<FfmpegTools, FfmpegError>::failure(FfmpegError::NotFound);
         {
             WaitCursor wait;
-            found = FfmpegLocator::locate(configuredPath(), FfmpegLocator::defaultToolsFolder());
+            found = FfmpegLocator::locate(configuredPath(), FfmpegLocator::defaultToolsFolder(),
+                                          app_identity::settings().value(kFfmpegApprovedKey).toString());
         }
         if (found) {
             m_tools = found.value();
@@ -64,6 +66,11 @@ std::optional<FfmpegTools> TimelapseController::tools(bool ask) {
         }
         if (!ask)
             return std::nullopt;
+        if (found.error() == FfmpegError::NotApproved) {
+            if (!approvePathProgram(FfmpegLocator::onPath()))
+                return std::nullopt;
+            continue;
+        }
         FfmpegMissingDialog dialog(describe(found.error()), m_parent);
         dialog.exec();
         switch (dialog.answer()) {
@@ -72,6 +79,22 @@ std::optional<FfmpegTools> TimelapseController::tools(bool ask) {
         case FfmpegMissingDialog::Answer::Located: setConfiguredPath(dialog.locatedPath()); break;
         }
     }
+}
+
+// Asked once for each program: the PATH can lead anywhere, and whatever is first on it would run as FFmpeg.
+bool TimelapseController::approvePathProgram(const QString& program) {
+    QMessageBox box(QMessageBox::Question, tr("Use FFmpeg from the PATH?"),
+                    tr("Doodlebold found FFmpeg at\n%1\n\nIt runs this program to read and write video and sound. Use it?")
+                        .arg(QDir::toNativeSeparators(program)),
+                    QMessageBox::NoButton, m_parent);
+    QAbstractButton* use = box.addButton(tr("Use It"), QMessageBox::AcceptRole);
+    box.addButton(QMessageBox::Cancel);
+    box.setDefaultButton(QMessageBox::Cancel);
+    box.exec();
+    if (box.clickedButton() != use)
+        return false;
+    app_identity::settings().setValue(kFfmpegApprovedKey, program);
+    return true;
 }
 
 QString TimelapseController::deleteQuestion(const QString& name, int steps) {

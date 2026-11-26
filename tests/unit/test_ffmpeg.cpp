@@ -3,6 +3,7 @@
 #include "FfmpegTestSupport.h"
 
 #include <QFile>
+#include <QFileInfo>
 #include <QStandardPaths>
 #include <QTemporaryDir>
 
@@ -106,14 +107,40 @@ TEST(FfmpegLocator, FfmpegWithoutProbeIsAnError) {
     QTemporaryDir dir;
     writeScript(dir.filePath(QStringLiteral("ffmpeg")), "ffmpeg version 9.9-test Copyright");
     const auto found = FfmpegLocator::check(dir.filePath(QStringLiteral("ffmpeg")));
-    if (QStandardPaths::findExecutable(QStringLiteral("ffprobe")).isEmpty()) {
-        ASSERT_FALSE(found.ok());
-        EXPECT_EQ(found.error(), FfmpegError::NoProbe);
-    } else {
-        EXPECT_TRUE(found.ok());
-    }
+    ASSERT_FALSE(found.ok()) << "an ffprobe on the PATH isn't taken in its place: the user approved no program there";
+    EXPECT_EQ(found.error(), FfmpegError::NoProbe);
 }
 #endif
+
+// Whatever comes first on the PATH would run as FFmpeg: one found only there runs once the user has said yes to that file.
+TEST(FfmpegLocator, OneOnlyOnThePathRunsOnceApproved) {
+    QTemporaryDir onPath, empty;
+    const QString program = onPath.filePath(FfmpegLocator::executableName(QStringLiteral("ffmpeg")));
+#ifdef Q_OS_WIN
+    QFile placeholder(program);  // found, not run: the question comes first
+    ASSERT_TRUE(placeholder.open(QIODevice::WriteOnly));
+    placeholder.close();
+#else
+    writeScript(program, "ffmpeg version 7.0-path Copyright");
+    writeScript(onPath.filePath(QStringLiteral("ffprobe")), "ffprobe version 7.0-path");
+#endif
+    const QByteArray savedPath = qgetenv("PATH");
+    qputenv("PATH", onPath.path().toLocal8Bit());
+    const auto unasked = FfmpegLocator::locate({}, empty.path());
+    const QString offered = FfmpegLocator::onPath();
+    const auto approved = FfmpegLocator::locate({}, empty.path(), program);
+    const auto another = FfmpegLocator::locate({}, empty.path(), empty.filePath(QStringLiteral("ffmpeg")));
+    qputenv("PATH", savedPath);
+    ASSERT_FALSE(unasked.ok());
+    EXPECT_EQ(unasked.error(), FfmpegError::NotApproved);
+    EXPECT_EQ(QFileInfo(offered).canonicalFilePath(), QFileInfo(program).canonicalFilePath());
+    EXPECT_FALSE(!approved.ok() && approved.error() == FfmpegError::NotApproved);
+#ifndef Q_OS_WIN
+    EXPECT_TRUE(approved.ok());
+#endif
+    ASSERT_FALSE(another.ok());
+    EXPECT_EQ(another.error(), FfmpegError::NotApproved) << "a yes is for that file alone";
+}
 
 TEST(FfmpegLocator, NothingFoundIsNotFound) {
     QTemporaryDir empty;

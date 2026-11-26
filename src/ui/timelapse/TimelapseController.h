@@ -46,6 +46,8 @@ protected:
     virtual bool confirmDelete(const QString& name, int steps);
     virtual bool confirmRestart(const QString& name, int steps);
     virtual void showError(const QString& title, const QString& text);
+    // Whether the PATH's `program` may run as FFmpeg; a yes is kept for that very file.
+    virtual bool approvePathProgram(const QString& program);
 
 private:
     QPointer<QWidget> m_parent;
