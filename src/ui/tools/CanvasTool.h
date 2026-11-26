@@ -47,6 +47,8 @@ public:
     // The part of the pen's pressure strokes use (Options' "Ignore pressure below" and "Full pressure at"), for the selection pens'
     // strokes as for painting's.
     virtual PressureRange pressureRange() const { return {}; }
+    // Whether this is the canvas the user works in: every open canvas's tools hear the one shared ToolBox.
+    virtual bool isCurrentCanvas() const { return true; }
 };
 
 class CanvasTool {
