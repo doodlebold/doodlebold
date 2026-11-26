@@ -279,3 +279,98 @@ TEST(Lift, ComposeOverIsSourceOverAndLeavesOpaqueTilesAlone) {
     EXPECT_NEAR(half[2], base.pixel(0, 0)[2] * through / kOne, 1);
     EXPECT_EQ(composeOver(base, TiledImage(kCanvas)).tileShared(0, 0), base.tileShared(0, 0));
 }
+
+namespace {
+
+// Every tile `a` holds, and no other, holds the same pixels in `b`, on the canvas or past it.
+void expectSameTiles(const TiledImage& a, const TiledImage& b) {
+    std::size_t held = 0, others = 0;
+    for (const auto& [c, t] : a.tiles()) {
+        if (!t)
+            continue;
+        ++held;
+        const Tile* o = b.tile(c.x, c.y);
+        ASSERT_TRUE(o) << "tile " << c.x << "," << c.y;
+        ASSERT_EQ(t->px, o->px) << "tile " << c.x << "," << c.y;
+    }
+    for (const auto& [c, t] : b.tiles())
+        others += t ? 1 : 0;
+    EXPECT_EQ(held, others);
+}
+
+struct OnlyLandingTiles {
+    OnlyLandingTiles() { visitOnlyLandingTiles() = true; }
+    ~OnlyLandingTiles() { visitOnlyLandingTiles() = false; }
+    OnlyLandingTiles(const OnlyLandingTiles&) = delete;
+    OnlyLandingTiles& operator=(const OnlyLandingTiles&) = delete;
+};
+
+// The pattern, and a copy of it up and to the left of the canvas, so the layer's box holds tiles with nothing in them.
+TiledImage patternTwice() {
+    const TiledImage src = pattern();
+    return composeOver(src, moveExactly(src, kPatternBox, Turn::None, QPoint(-700, -400)));
+}
+
+constexpr Turn kAllTurns[] = {Turn::None, Turn::FlipHorizontal, Turn::FlipVertical, Turn::Rotate180, Turn::Clockwise, Turn::CounterClockwise};
+
+// Some px past the canvas: farther than the 5120 px a layer once ended at, and far enough that the box round content there and
+// on the canvas holds over two billion tiles.
+constexpr int kFar = 3'000'000;
+
+}
+
+TEST(Transform, VisitingOnlyTheTilesContentLandsOnGivesTheSamePixels) {
+    const TiledImage src = patternTwice();
+    const QRect area = src.contentBounds(true);
+    const QPoint offsets[] = {{0, 0}, {37, -91}, {-3000, 2500}};
+    for (const Turn turn : kAllTurns)
+        for (const QPoint& offset : offsets) {
+            SCOPED_TRACE(::testing::Message() << "turn " << int(turn) << " offset " << offset.x() << "," << offset.y());
+            const TiledImage every = moveExactly(src, area, turn, offset);
+            const OnlyLandingTiles only;
+            expectSameTiles(every, moveExactly(src, area, turn, offset));
+        }
+
+    const SelectionMask m = selection::marquee(kCanvas, QPoint(30, 20), QPoint(79, 49));
+    const SelectionMask everyMask = moveExactly(m, QRect(30, 20, 50, 30), Turn::Clockwise, QPoint(13, 7));
+    const QRectF box(area);
+    const QPointF centre = box.center();
+    const Quad turned = Quad::of(box).transformed(QTransform().translate(centre.x(), centre.y()).rotate(30).scale(1.7, 0.8).translate(-centre.x(), -centre.y()));
+    const Quad deformed{{box.topLeft() + QPointF(-40, 10), box.topRight() + QPointF(90, -30), box.bottomRight() + QPointF(-20, 60),
+                         box.bottomLeft() + QPointF(30, -15)}};
+    // Narrow at the top and wide at the bottom, where the bilinear and projective mappings put a point farthest apart.
+    const Quad receding{{QPointF(centre.x() - 100, box.top()), QPointF(centre.x() + 100, box.top()), box.bottomRight() + QPointF(400, 200),
+                         box.bottomLeft() + QPointF(-400, 200)}};
+    const double perspectives[] = {0.0, 0.5, 1.0};
+    std::vector<TiledImage> everyResample;
+    for (const Quad& q : {turned, deformed, receding})
+        for (const double p : perspectives)
+            everyResample.push_back(resample(src, area, q, Interpolation::Nearest, p));
+    const SelectionMask everyMaskResample = resample(m, QRect(30, 20, 50, 30), receding, Interpolation::Nearest, 0.5);
+
+    const OnlyLandingTiles only;
+    EXPECT_EQ(moveExactly(m, QRect(30, 20, 50, 30), Turn::Clockwise, QPoint(13, 7)), everyMask);
+    std::size_t i = 0;
+    for (const Quad& q : {turned, deformed, receding})
+        for (const double p : perspectives) {
+            SCOPED_TRACE(::testing::Message() << "quad " << i / 3 << " perspective " << p);
+            expectSameTiles(everyResample[i++], resample(src, area, q, Interpolation::Nearest, p));
+        }
+    EXPECT_EQ(resample(m, QRect(30, 20, 50, 30), receding, Interpolation::Nearest, 0.5), everyMaskResample);
+}
+
+TEST(Transform, ContentGoesAnyDistanceOffTheCanvasAndComesBackWhole) {
+    const TiledImage src = pattern();
+    const TiledImage away = moveExactly(src, kPatternBox, Turn::None, QPoint(kFar, -kFar));
+    EXPECT_EQ(away.contentBounds(true), kPatternBox.translated(kFar, -kFar));
+    expectSameTiles(src, moveExactly(away, away.contentBounds(true), Turn::None, QPoint(-kFar, kFar)));
+
+    // A layer whose content lies that far apart turns, flips and transforms by what it holds, not by its box.
+    const TiledImage apart = composeOver(src, away);
+    const QRect box = apart.contentBounds(true);
+    const TiledImage turned = moveExactly(apart, box, Turn::Clockwise);
+    EXPECT_EQ(turned.contentBounds(true), movedArea(box, Turn::Clockwise));
+    expectSameTiles(apart, moveExactly(turned, movedArea(box, Turn::Clockwise), Turn::CounterClockwise));
+    expectSameTiles(apart, moveExactly(moveExactly(apart, box, Turn::FlipHorizontal), box, Turn::FlipHorizontal));
+    expectSameTiles(apart, resample(apart, box, Quad::of(QRectF(box)), Interpolation::Nearest));
+}

@@ -56,9 +56,15 @@ public:
 
     QSize size() const { return m_size; }
     QRect rect() const { return QRect(QPoint(0, 0), m_size); }
-    // A layer keeps what is painted or moved past the canvas's edge, this far: it shows again when it is moved back.
-    static constexpr int kOffCanvas = 5120;  // a whole number of tiles
+    // A layer keeps what is moved or transformed past the canvas's edge, this far (px, a whole number of tiles): it shows again
+    // when it is moved back. 2^24 is as far as a 32-bit float, which the display draws with, holds every whole pixel; coordinates
+    // are 32-bit, and sums of three of them must still fit.
+    static constexpr int kOffCanvas = 1 << 24;
     QRect paintArea() const { return rect().adjusted(-kOffCanvas, -kOffCanvas, kOffCanvas, kOffCanvas); }
+    // The margin round the canvas (px, a whole number of tiles) that work done over a whole area covers at once: the effects'
+    // table of tiles, a move's every tile. It is how far a layer reached before moves had no limit, so such work is no slower.
+    static constexpr int kNearCanvas = 5120;
+    QRect nearArea() const { return rect().adjusted(-kNearCanvas, -kNearCanvas, kNearCanvas, kNearCanvas); }
     // The tile a pixel coordinate lies in; off the canvas coordinates can be negative.
     static int tileOf(int pixel) { return pixel >= 0 ? pixel / Tile::kSize : -((-pixel + Tile::kSize - 1) / Tile::kSize); }
     int tilesX() const { return (m_size.width() + Tile::kSize - 1) / Tile::kSize; }

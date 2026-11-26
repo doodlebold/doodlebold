@@ -3,7 +3,9 @@
 #include "core/util/ParallelFor.h"
 
 #include <algorithm>
+#include <array>
 #include <cmath>
+#include <limits>
 #include <mutex>
 #include <vector>
 
@@ -20,27 +22,75 @@ template <int N> struct Plane {
     QRect rect;
     std::vector<std::uint16_t> v;
 
+    bool empty() const { return v.empty(); }
     bool contains(int x, int y) const { return rect.contains(x, y); }
     const std::uint16_t* at(int x, int y) const {
         return &v[(static_cast<std::size_t>(y - rect.top()) * rect.width() + (x - rect.left())) * N];
     }
     std::uint16_t* at(int x, int y) { return &v[(static_cast<std::size_t>(y - rect.top()) * rect.width() + (x - rect.left())) * N]; }
+
+    struct Cursor {
+        const Plane* plane;
+        const std::uint16_t* at(int x, int y) { return plane->at(x, y); }
+    };
+    Cursor cursor() const { return {this}; }
+    // The parts of its rect, a tile at a time (a mask's plane is the canvas's size at most).
+    template <typename Visit> void forEachTile(Visit&& visit) const {
+        for (int ty = floorDiv(rect.top(), kTile); ty <= floorDiv(rect.bottom(), kTile); ++ty)
+            for (int tx = floorDiv(rect.left(), kTile); tx <= floorDiv(rect.right(), kTile); ++tx)
+                visit(TiledImage::tileRect(tx, ty).intersected(rect));
+    }
 };
 
-Plane<4> planeOf(const TiledImage& img, const QRect& clip) {
-    Plane<4> p;
-    p.rect = img.contentBounds(false).intersected(clip);
-    if (p.rect.isEmpty())
-        return p;
-    p.v.assign(static_cast<std::size_t>(p.rect.width()) * p.rect.height() * 4, 0);
-    for (const auto& [c, t] : img.tiles()) {
-        const QRect part = c.pixelRect().intersected(p.rect);
-        if (!t || part.isEmpty())
-            continue;
-        for (int y = part.top(); y <= part.bottom(); ++y)
-            std::copy_n(t->at(part.left() - c.x * kTile, y - c.y * kTile), part.width() * 4, p.at(part.left(), y));
+// A layer's pixels, read in its tiles where they are: content moved far apart holds mostly nothing between, so the box round it
+// isn't copied whole. A cursor keeps the last tile it read, as neighbouring pixels read the same one.
+struct ImageSource {
+    const TiledImage* image = nullptr;
+    QRect rect;
+
+    bool empty() const { return rect.isEmpty(); }
+    bool contains(int x, int y) const { return rect.contains(x, y); }
+
+    struct Cursor {
+        const TiledImage* image;
+        int tx = std::numeric_limits<int>::min(), ty = std::numeric_limits<int>::min();
+        const Tile* tile = nullptr;
+        const std::uint16_t* at(int x, int y) {
+            static const std::array<std::uint16_t, 4> kNothing{};
+            const int cx = floorDiv(x, kTile), cy = floorDiv(y, kTile);
+            if (cx != tx || cy != ty) {
+                tx = cx, ty = cy;
+                tile = image->tile(cx, cy);
+            }
+            return tile ? tile->at(x - cx * kTile, y - cy * kTile) : kNothing.data();
+        }
+    };
+    Cursor cursor() const { return {image}; }
+    // The parts of its rect the image has tiles in.
+    template <typename Visit> void forEachTile(Visit&& visit) const {
+        for (const auto& [c, t] : image->tiles())
+            if (const QRect part = c.pixelRect().intersected(rect); t && !part.isEmpty())
+                visit(part);
     }
-    return p;
+};
+
+ImageSource planeOf(const TiledImage& img, const QRect& clip) {
+    return {&img, img.contentBounds(false).intersected(clip)};
+}
+
+std::int64_t tilesIn(const QRect& r) {
+    return std::int64_t{floorDiv(r.right(), kTile) - floorDiv(r.left(), kTile) + 1} * (floorDiv(r.bottom(), kTile) - floorDiv(r.top(), kTile) + 1);
+}
+
+void addTilesOf(const QRect& r, std::vector<TileCoord>& out) {
+    for (int ty = floorDiv(r.top(), kTile); ty <= floorDiv(r.bottom(), kTile); ++ty)
+        for (int tx = floorDiv(r.left(), kTile); tx <= floorDiv(r.right(), kTile); ++tx)
+            out.push_back({tx, ty});
+}
+
+void sortUnique(std::vector<TileCoord>& tiles) {
+    std::sort(tiles.begin(), tiles.end(), [](TileCoord a, TileCoord b) { return a.y != b.y ? a.y < b.y : a.x < b.x; });
+    tiles.erase(std::unique(tiles.begin(), tiles.end()), tiles.end());
 }
 
 Plane<1> planeOf(const SelectionMask& m, const QRect& clip) {
@@ -61,6 +111,7 @@ double cross(const QPointF& a, const QPointF& b) {
 struct QuadMap {
     QPointF a, e, f, g;
     QTransform projective;  // quad → unit square, for the Perspective blend
+    QTransform toQuad;      // unit square → quad, its inverse
     bool hasProjective = false;
     double perspective = 0.0;
 
@@ -71,6 +122,29 @@ struct QuadMap {
         g = q.corner[0] - q.corner[1] + q.corner[2] - q.corner[3];
         if (perspective > 0.0)
             hasProjective = QTransform::quadToSquare(QPolygonF({q.corner[0], q.corner[1], q.corner[2], q.corner[3]}), projective);
+        if (hasProjective)
+            toQuad = projective.inverted();
+    }
+
+    QPointF bilinear(double u, double v) const { return a + e * u + f * v + g * (u * v); }
+
+    // Where the destination pixels reading from the part (u0, v0) – (u1, v1) of the unit square lie. The bilinear mapping keeps a
+    // rectangle's corners outermost; a blend towards the projective one lands near the line between where each puts a point,
+    // and a margin of their distance apart covers a blend that leans off that line.
+    QRectF lands(double u0, double v0, double u1, double v1) const {
+        const std::array<QPointF, 4> corners{QPointF(u0, v0), QPointF(u1, v0), QPointF(u1, v1), QPointF(u0, v1)};
+        QPolygonF points;
+        double margin = 0.0;
+        for (const QPointF& c : corners) {
+            const QPointF b = bilinear(c.x(), c.y());
+            points << b;
+            if (hasProjective) {
+                const QPointF p = toQuad.map(c);
+                points << p;
+                margin = std::max(margin, std::hypot(p.x() - b.x(), p.y() - b.y()));
+            }
+        }
+        return points.boundingRect().adjusted(-margin, -margin, margin, margin);
     }
 
     bool inverse(double x, double y, double& u, double& v) const {
@@ -125,9 +199,10 @@ template <int N, typename Fill, typename Emit> void renderTiles(const std::vecto
     });
 }
 
-template <int N, typename Emit>
-void resamplePlane(const Plane<N>& plane, const QRect& box, const Quad& dest, double perspective, const QRect& limit, Emit& deliver) {
-    if (plane.v.empty() || box.isEmpty())
+template <int N, typename Source, typename Emit>
+void resamplePlane(const Source& source, const QRect& box, const Quad& dest, double perspective, const QRect& limit,
+                   std::int64_t denseTiles, Emit& deliver) {
+    if (source.empty() || box.isEmpty())
         return;
     const QRect landing =
         QPolygonF({dest.corner[0], dest.corner[1], dest.corner[2], dest.corner[3]}).boundingRect().toAlignedRect() & limit;
@@ -135,13 +210,24 @@ void resamplePlane(const Plane<N>& plane, const QRect& box, const Quad& dest, do
         return;
     const QuadMap map(dest, perspective);
     std::vector<TileCoord> tiles;
-    for (int ty = floorDiv(landing.top(), kTile); ty <= floorDiv(landing.bottom(), kTile); ++ty)
-        for (int tx = floorDiv(landing.left(), kTile); tx <= floorDiv(landing.right(), kTile); ++tx)
-            tiles.push_back({tx, ty});
+    if (!visitOnlyLandingTiles() && tilesIn(landing) <= denseTiles) {
+        addTilesOf(landing, tiles);
+    } else {
+        const double w = box.width(), h = box.height();
+        source.forEachTile([&](const QRect& part) {
+            const QRectF lands = map.lands((part.left() - box.left()) / w, (part.top() - box.top()) / h,
+                                           (part.right() + 1 - box.left()) / w, (part.bottom() + 1 - box.top()) / h);
+            // A pixel takes what is under its centre, half a pixel in from its edge.
+            if (const QRect r = lands.toAlignedRect().adjusted(-1, -1, 1, 1) & landing; !r.isEmpty())
+                addTilesOf(r, tiles);
+        });
+        sortUnique(tiles);
+    }
     renderTiles<N>(
         tiles,
         [&](int tx, int ty, std::uint16_t* values) {
             const QRect part = TiledImage::tileRect(tx, ty) & landing;
+            auto read = source.cursor();
             bool any = false;
             for (int y = part.top(); y <= part.bottom(); ++y)
                 for (int x = part.left(); x <= part.right(); ++x) {
@@ -150,9 +236,9 @@ void resamplePlane(const Plane<N>& plane, const QRect& box, const Quad& dest, do
                         continue;
                     const int sx = std::min(box.left() + int(std::floor(u * box.width())), box.right());
                     const int sy = std::min(box.top() + int(std::floor(v * box.height())), box.bottom());
-                    if (!plane.contains(sx, sy))
+                    if (!source.contains(sx, sy))
                         continue;
-                    const std::uint16_t* q = plane.at(sx, sy);
+                    const std::uint16_t* q = read.at(sx, sy);
                     std::copy_n(q, N, values + (static_cast<std::size_t>(y - ty * kTile) * kTile + (x - tx * kTile)) * N);
                     any = any || q[N - 1] != 0;
                 }
@@ -176,28 +262,55 @@ QPoint sourceOf(const QRect& area, Turn turn, const QPoint& offset, int x, int y
     return {X, Y};
 }
 
-template <int N, typename Emit>
-void moveExactlyPlane(const Plane<N>& plane, const QRect& area, Turn turn, const QPoint& offset, const QRect& limit, Emit& deliver) {
-    if (plane.v.empty())
+// Where sourceOf()'s pixel (sx, sy) lands: its inverse.
+QPoint destinationOf(const QRect& area, Turn turn, const QPoint& offset, int sx, int sy) {
+    const int w = area.width(), h = area.height();
+    const QPoint origin = movedArea(area, turn).topLeft();
+    QPoint d(sx, sy);
+    switch (turn) {
+    case Turn::None: break;
+    case Turn::FlipHorizontal: d = {2 * area.left() + w - 1 - sx, sy}; break;
+    case Turn::FlipVertical: d = {sx, 2 * area.top() + h - 1 - sy}; break;
+    case Turn::Rotate180: d = {2 * area.left() + w - 1 - sx, 2 * area.top() + h - 1 - sy}; break;
+    case Turn::Clockwise: d = {origin.x() + h - 1 - (sy - area.top()), origin.y() + (sx - area.left())}; break;
+    case Turn::CounterClockwise: d = {origin.x() + (sy - area.top()), origin.y() + w - 1 - (sx - area.left())}; break;
+    }
+    return d + offset;
+}
+
+template <int N, typename Source, typename Emit>
+void moveExactlyPlane(const Source& source, const QRect& area, Turn turn, const QPoint& offset, const QRect& limit,
+                      std::int64_t denseTiles, Emit& deliver) {
+    if (source.empty())
         return;
     const QRect target = movedArea(area, turn, offset).intersected(limit);
     if (target.isEmpty())
         return;
     std::vector<TileCoord> tiles;
-    for (int ty = floorDiv(target.top(), kTile); ty <= floorDiv(target.bottom(), kTile); ++ty)
-        for (int tx = floorDiv(target.left(), kTile); tx <= floorDiv(target.right(), kTile); ++tx)
-            tiles.push_back({tx, ty});
+    if (!visitOnlyLandingTiles() && tilesIn(target) <= denseTiles) {
+        addTilesOf(target, tiles);
+    } else {
+        source.forEachTile([&](const QRect& part) {
+            const QPoint a = destinationOf(area, turn, offset, part.left(), part.top());
+            const QPoint b = destinationOf(area, turn, offset, part.right(), part.bottom());
+            const QRect lands(QPoint(std::min(a.x(), b.x()), std::min(a.y(), b.y())), QPoint(std::max(a.x(), b.x()), std::max(a.y(), b.y())));
+            if (const QRect r = lands & target; !r.isEmpty())
+                addTilesOf(r, tiles);
+        });
+        sortUnique(tiles);
+    }
     renderTiles<N>(
         tiles,
         [&](int tx, int ty, std::uint16_t* values) {
             const QRect part = TiledImage::tileRect(tx, ty).intersected(target);
+            auto read = source.cursor();
             bool any = false;
             for (int y = part.top(); y <= part.bottom(); ++y)
                 for (int x = part.left(); x <= part.right(); ++x) {
                     const QPoint s = sourceOf(area, turn, offset, x, y);
-                    if (!plane.contains(s.x(), s.y()))
+                    if (!source.contains(s.x(), s.y()))
                         continue;
-                    const std::uint16_t* q = plane.at(s.x(), s.y());
+                    const std::uint16_t* q = read.at(s.x(), s.y());
                     std::uint16_t* out = values + (static_cast<std::size_t>(y - ty * kTile) * kTile + (x - tx * kTile)) * N;
                     std::copy_n(q, N, out);
                     any = any || q[N - 1] != 0;
@@ -233,6 +346,11 @@ struct MaskSink {
 
 }
 
+std::atomic<bool>& visitOnlyLandingTiles() {
+    static std::atomic<bool> on{false};
+    return on;
+}
+
 Interpolation interactiveQuality(Interpolation final, Interpolation preview, Interpolation dragging, bool isDragging) {
     const Interpolation q = std::min(final, preview);
     return isDragging ? std::min(q, dragging) : q;
@@ -252,14 +370,14 @@ TiledImage resample(const TiledImage& src, const QRect& sourceRect, const Quad& 
     const QRect landing = QPolygonF({dest.corner[0], dest.corner[1], dest.corner[2], dest.corner[3]}).boundingRect().toAlignedRect();
     const QPoint corner(floorDiv(landing.left(), kTile) * kTile, floorDiv(landing.top(), kTile) * kTile);
     const QRect reach = (src.rect() | QRect(corner, landing.bottomRight())).intersected(src.paintArea());
-    resamplePlane<4>(planeOf(src, sourceRect), sourceRect, dest, perspective, reach, sink);
+    resamplePlane<4>(planeOf(src, sourceRect), sourceRect, dest, perspective, reach, tilesIn(src.nearArea()), sink);
     sink.out.squeeze();
     return std::move(sink.out);
 }
 
 SelectionMask resample(const SelectionMask& src, const QRect& sourceRect, const Quad& dest, Interpolation, double perspective) {
     MaskSink sink(src.size());
-    resamplePlane<1>(planeOf(src, sourceRect), sourceRect, dest, perspective, src.rect(), sink);
+    resamplePlane<1>(planeOf(src, sourceRect), sourceRect, dest, perspective, src.rect(), tilesIn(src.rect()), sink);
     sink.out.squeeze();
     return std::move(sink.out);
 }
@@ -283,14 +401,15 @@ SelectionMask moveExactly(const SelectionMask& src, const QRect& area, Turn turn
 
 TiledImage moveExactly(const TiledImage& src, const QRect& area, Turn turn, const QPoint& offset, const QSize& target) {
     ImageSink sink(target);
-    moveExactlyPlane<4>(planeOf(src, area), area, turn, offset, sink.out.paintArea(), sink);
+    moveExactlyPlane<4>(planeOf(src, area), area, turn, offset, sink.out.paintArea(), tilesIn(sink.out.nearArea()), sink);
     sink.out.squeeze();
     return std::move(sink.out);
 }
 
 SelectionMask moveExactly(const SelectionMask& src, const QRect& area, Turn turn, const QPoint& offset, const QSize& target) {
     MaskSink sink(target);
-    moveExactlyPlane<1>(planeOf(src, area), area, turn, offset, QRect(QPoint(0, 0), target), sink);
+    const QRect canvas(QPoint(0, 0), target);
+    moveExactlyPlane<1>(planeOf(src, area), area, turn, offset, canvas, tilesIn(canvas), sink);
     sink.out.squeeze();
     return std::move(sink.out);
 }

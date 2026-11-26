@@ -21,8 +21,8 @@ void addScaled(float* acc, const float* px, float w) {
 
 }
 
-TileGrid::TileGrid(const TiledImage& image, const QRect& edges) : m_edges(edges) {
-    const QRect area = image.paintArea();
+TileGrid::TileGrid(const TiledImage& image, const QRect& edges) : m_image(&image), m_edges(edges) {
+    const QRect area = image.nearArea();
     m_tx0 = TiledImage::tileOf(area.left());
     m_ty0 = TiledImage::tileOf(area.top());
     m_cols = TiledImage::tileOf(area.right()) - m_tx0 + 1;
@@ -38,7 +38,7 @@ TileGrid::TileGrid(const TiledImage& image, const QRect& edges) : m_edges(edges)
 const Tile* TileGrid::tile(int tx, int ty) const {
     const int col = tx - m_tx0, row = ty - m_ty0;
     if (col < 0 || row < 0 || col >= m_cols || row >= m_rows)
-        return nullptr;
+        return m_image->tile(tx, ty);
     return m_tiles[static_cast<std::size_t>(row * m_cols + col)];
 }
 

@@ -6,6 +6,8 @@
 #include "core/io/ImageConvert.h"
 #include "core/io/PsdFormat.h"
 #include "core/selection/SelectionOps.h"
+#include "core/transform/Lift.h"
+#include "core/transform/Resample.h"
 
 #include <QBuffer>
 #include <QFile>
@@ -758,4 +760,18 @@ TEST(PsdFormat, FilesOfOtherProgramsOpenOnAWhiteBackground) {
     ASSERT_TRUE(back.ok());
     EXPECT_EQ(back.value().content.background(), CanvasBackground{});
     EXPECT_GT(back.value().content.resolution, 0.0);
+}
+
+TEST(PsdFormat, ALayerReachingFarPastTheCanvasKeepsItsCanvasPart) {
+    // px past the canvas: the layer's box is then wider than the PSD reader opens, so only the canvas's part can be written
+    constexpr int kFar = 3'000'000;
+    DocumentContent original = psdContent();
+    LayerNode& background = original.state.layers.root().children[0];
+    const TiledImage canvasPart = background.pixels;
+    background.pixels = transform::composeOver(
+        background.pixels, transform::moveExactly(background.pixels, QRect(0, 0, 30, 20), transform::Turn::None, QPoint(kFar, 0)));
+
+    const auto loaded = parse(written(original));
+    ASSERT_TRUE(loaded.ok()) << qPrintable(loaded.error().describe());
+    expectSameImage(canvasPart, loaded.value().content.state.layers.root().children[0].pixels, QStringLiteral("background"));
 }

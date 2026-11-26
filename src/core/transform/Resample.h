@@ -10,6 +10,7 @@
 #include <QTransform>
 
 #include <array>
+#include <atomic>
 
 // Transform Layer (Resize, Rotate, Freeform, Deform), Flip Horizontal / Vertical and Rotate 90°: pure functions on
 // rasters; the layer and its selection go through the same resampler. Pixel (i, j) has its centre at (i + 0.5, j + 0.5).
@@ -60,5 +61,9 @@ TiledImage moveExactly(const TiledImage& src, const QRect& area, Turn turn, cons
 SelectionMask moveExactly(const SelectionMask& src, const QRect& area, Turn turn, const QPoint& offset = {});
 TiledImage moveExactly(const TiledImage& src, const QRect& area, Turn turn, const QPoint& offset, const QSize& target);
 SelectionMask moveExactly(const SelectionMask& src, const QRect& area, Turn turn, const QPoint& offset, const QSize& target);
+
+// A move or transform whose box reaches no farther than TiledImage::nearArea() goes over every tile of it; one reaching farther
+// visits only the tiles its content lands on. Set, the second way is always taken, so tests can check both give the same pixels.
+std::atomic<bool>& visitOnlyLandingTiles();
 
 }

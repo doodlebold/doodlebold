@@ -562,6 +562,11 @@ int CanvasView::reducedLevel() const {
     return reducedFits(level) ? level : 0;
 }
 
+bool CanvasView::canFloat(const TransformSession& session) const {
+    const QRect box = session.sourceBounds();
+    return m_floating.isReady() && box.width() <= m_largestTexture && box.height() <= m_largestTexture;
+}
+
 bool CanvasView::reducedFits(int level) const {
     if (!s_reducedView || m_session || m_doc->hasUnderlay())
         return false;
@@ -811,7 +816,7 @@ void CanvasView::paintGL() {
         m_floating.unload();
         m_unloadFloating = false;
     }
-    if (m_session && m_session->gpuPreview() && !m_floating.isReady()) {
+    if (m_session && m_session->gpuPreview() && !canFloat(*m_session)) {
         m_session->setGpuPreview(false);
         pullSessionDirty();
     }
@@ -2101,7 +2106,7 @@ void CanvasView::startSession(std::shared_ptr<TransformSession> session) {
     if (m_glReady && m_session->gpuPreview()) {
         // Composite the pictures around the layer now, while the user reaches for a handle, not at the first drag step.
         QTimer::singleShot(0, this, [this, weak = std::weak_ptr<TransformSession>(m_session)] {
-            if (const auto s = weak.lock(); s && s == m_session && s->gpuPreview() && m_floating.isReady()) {
+            if (const auto s = weak.lock(); s && s == m_session && s->gpuPreview() && canFloat(*s)) {
                 s->floatingPreview();
                 update();
             }

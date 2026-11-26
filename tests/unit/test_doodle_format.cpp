@@ -4,6 +4,8 @@
 #include "core/io/DoodleFormat.h"
 #include "core/io/FileIo.h"
 #include "core/io/ByteIO.h"
+#include "core/transform/Lift.h"
+#include "core/transform/Resample.h"
 
 #include <QBuffer>
 #include <QDir>
@@ -404,13 +406,20 @@ TEST(DoodleFormat, WellFormedButImpossibleContentIsRefused) {
         std::vector<Chunk> chunks = good;
         QByteArray& p = chunks[1].payload;
         ASSERT_GT(p.size(), 20);
-        p[8] = 100;
-        expectCorrupt(parse(build(file, chunks)), "tile beyond the canvas");
+        p[11] = 0x7f;
+        expectCorrupt(parse(build(file, chunks)), "tile beyond how far a layer reaches");
     }
     {
         std::vector<Chunk> chunks = good;
         chunks[1].payload[4] = 0x7f;
         expectCorrupt(parse(build(file, chunks)), "tile count");
+    }
+    {
+        std::vector<Chunk> chunks = good;
+        QByteArray& p = chunks[1].payload;
+        p[4] = p[5] = p[6] = static_cast<char>(0xff);
+        p[7] = 0x7f;
+        expectCorrupt(parse(build(file, chunks)), "more tiles than the chunk has bytes for");
     }
     {
         std::vector<Chunk> chunks = good;
@@ -548,4 +557,22 @@ TEST(DoodleFormat, EveryBlendModeHasItsOwnStoredName) {
     }
     EXPECT_EQ(keys.size(), kBlendModeCount);
     EXPECT_FALSE(blendModeFromKey(QStringLiteral("mauve")));
+}
+
+TEST(DoodleFormat, ContentFarPastTheCanvasIsKept) {
+    // px past the canvas, far beyond the 5120 px a layer once ended at
+    constexpr int kFar = 3'000'000;
+    DocumentContent original = richContent();
+    TiledImage& px = original.state.layers.root().children[0].pixels;
+    const QRect part(0, 0, 70, 40);
+    px = transform::composeOver(px, transform::moveExactly(px, part, transform::Turn::None, QPoint(kFar, -kFar)));
+    px = transform::composeOver(px, transform::moveExactly(px, part, transform::Turn::None, QPoint(-kFar, kFar)));
+
+    const auto loaded = parse(saved(original));
+    ASSERT_TRUE(loaded.ok()) << qPrintable(loaded.error().describe());
+    expectSameContent(original, loaded.value().content);
+    const TiledImage& back = loaded.value().content.state.layers.root().children[0].pixels;
+    EXPECT_EQ(back.contentBounds(true), px.contentBounds(true));
+    for (const QPoint& at : {QPoint(kFar, -kFar), QPoint(kFar + 69, -kFar + 39), QPoint(-kFar + 33, kFar + 21)})
+        EXPECT_EQ(back.pixel(at.x(), at.y()), px.pixel(at.x(), at.y())) << at.x() << "," << at.y();
 }

@@ -961,9 +961,11 @@ FileResult<> readLayerChunk(const Chunk& chunk, LayerNode& layer) {
     const std::uint32_t count = r.u32();
     if (!r.ok() || id != layer.props.id.value())
         return FileResult<>::failure(corrupt(QStringLiteral("(layer chunk does not match the layer list)")));
-    // A layer can hold pixels past the canvas's edge.
+    // A layer can hold pixels past the canvas's edge. Each tile is listed with its column, row and length (4 bytes each), so the
+    // count can't be more than the bytes left hold: what is set aside for the list is then no more than the file's size.
+    constexpr std::size_t kTileEntryBytes = 12;
     const QRect tileArea = layer.pixels.tileRange(layer.pixels.paintArea());
-    if (count > std::size_t(tileArea.width()) * std::size_t(tileArea.height()))
+    if (count > std::size_t(tileArea.width()) * std::size_t(tileArea.height()) || count > r.remaining() / kTileEntryBytes)
         return FileResult<>::failure(corrupt(QStringLiteral("(too many tiles in layer \"%1\")").arg(layer.props.name)));
 
     struct Pending {

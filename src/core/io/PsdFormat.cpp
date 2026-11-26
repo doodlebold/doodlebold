@@ -738,6 +738,11 @@ struct Planes {
 Planes extractPlanes(const TiledImage& img) {
     Planes p;
     p.rect = img.contentBounds(true);
+    // What lies past the canvas's edge goes along while the layer stays within what the reader opens (kMaxLayerSide, kMaxLayerArea);
+    // past that only the canvas's part is written, or the saved file wouldn't open again.
+    if (p.rect.width() > kMaxLayerSide || p.rect.height() > kMaxLayerSide ||
+        static_cast<std::uint64_t>(p.rect.width()) * static_cast<std::uint64_t>(p.rect.height()) > kMaxLayerArea)
+        p.rect &= img.rect();
     if (p.rect.isEmpty())
         return p;
     const std::size_t n = static_cast<std::size_t>(p.rect.width()) * static_cast<std::size_t>(p.rect.height());
