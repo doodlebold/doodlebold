@@ -100,7 +100,8 @@ Document::Document(DocumentContent content, QObject* parent)
         if (!m_pushing)
             recordStep(undone ? TimelapseStep::Kind::Undo : TimelapseStep::Kind::Redo);
     });
-    if (content.timelapse && !content.timelapse->isEmpty() && content.timelapse->finalSize() == size()) {
+    // A paused recording may end at another size (timelapse_file::read); its next step is whole, at this one.
+    if (content.timelapse && !content.timelapse->isEmpty() && (content.timelapse->paused || content.timelapse->finalSize() == size())) {
         m_recorder = std::make_unique<TimelapseRecorder>(*content.timelapse);
         // The picture is the recording's last one, so nothing is dirty until something is drawn.
     }
