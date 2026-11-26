@@ -42,6 +42,7 @@ void DabPainter::layBrushGroup(const Dab& dab) {
         area |= QRect(QPoint(static_cast<int>(std::floor(stamp.centre.x() - box)), static_cast<int>(std::floor(stamp.centre.y() - box))),
                       QPoint(static_cast<int>(std::ceil(stamp.centre.x() + box)), static_cast<int>(std::ceil(stamp.centre.y() + box))));
     }
+    area &= m_layer.rect();  // painting stops at the canvas's edge: a group lays, and picks up, only on it
     // The plate's edge by Sharpness: the Brush's with its tail; Water Color's widened inward below 50, kBrushPlateEdgeWidth from 50 up.
     const float softer = static_cast<float>(std::clamp(2.0 * m_tip.rimShare - 1.0, 0.0, 1.0));
     const float plateWidth = brush ? bySharpness(kBrushPlateWidthBySharpness, m_tip.rimShare)

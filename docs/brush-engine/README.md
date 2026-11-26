@@ -18,6 +18,16 @@ it says what the value is, what it does, and how it was chosen, with the measure
 
 `StrokeWorker` runs all this on the stroke's own thread.
 
+Painting stops at the canvas's edge, though a layer keeps what was moved past it:
+
+- **Nothing is laid past the edge.** A tile that reaches past it keeps there what the layer held before the stroke (`keptOnCanvas`,
+  `RebuiltStroke.cpp`).
+- **The mixing tools pick up only from the canvas.** A sample past its edge counts for nothing: it adds neither colour nor weight
+  (`DabTipMixing.inc`).
+- **The Water Color and Marker melt sees the edge go on.** Past the edge, the melt reads the edge's pixels again
+  (`readRow`, `cellAverage`, `DabTipBlur.inc`).
+- **The Clone Stamp copies only from the canvas** (`StrokeMerge.cpp`).
+
 ## Pages
 
 | Page | Source |

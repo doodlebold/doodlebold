@@ -372,14 +372,14 @@ private:
 };
 
 // What the Clone Stamp lays at a tile's pixels: the source's pixel `sourceOffset` back, premultiplied, with its alpha. The
-// source pixels under a tile lie in at most two by two of the source's tiles, looked up once for the tile, not once a pixel: the same
-// pixels as the source's pixel() reads.
+// source pixels under a tile lie in at most two by two of the source's tiles, looked up once for the tile, not once a pixel. Only
+// the canvas is copied from: what lies past its edge doesn't show, so it isn't there to clone.
 class ClonedTile {
 public:
     ClonedTile(const StrokePaint& paint, TileCoord coord)
         : m_left(coord.x * Tile::kSize - paint.sourceOffset.x()),
           m_top(coord.y * Tile::kSize - paint.sourceOffset.y()),
-          m_area(paint.source->paintArea()),
+          m_area(paint.source->rect()),
           m_tileLeft(TiledImage::tileOf(m_left)),
           m_tileTop(TiledImage::tileOf(m_top)) {
         for (int ty = 0; ty < 2; ++ty)
@@ -798,7 +798,7 @@ void mergeTiles(std::vector<TileMergeJob>& jobs, const StrokePaint& paint) {
 }
 
 void mergeStroke(const StrokeBuffer& buffer, const StrokePaint& paint, TiledImage& target) {
-    const QRect area = target.paintArea();
+    const QRect area = target.rect();
     for (const auto& [coord, density] : buffer.tiles()) {
         if (area.intersects(coord.pixelRect()))
             mergeDensityTile(*density, paint, *target.writableTile(coord.x, coord.y), nullptr, coord);

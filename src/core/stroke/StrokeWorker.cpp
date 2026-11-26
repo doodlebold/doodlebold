@@ -298,7 +298,7 @@ void StrokeWorker::publish(int level, bool holdBack) {
     }
     if (level > 0)
         m_blocksLevel = level;
-    const QRect area = std::exchange(m_unshownArea, QRect()).intersected(m_before.paintArea());
+    const QRect area = std::exchange(m_unshownArea, QRect()).intersected(m_before.rect());
     std::vector<TileMergeJob> jobs, gridOnly;
     jobs.reserve(m_unshownTiles.size());
     for (const TileCoord coord : m_unshownTiles) {
@@ -367,7 +367,7 @@ void StrokeWorker::publish(int level, bool holdBack) {
         m_frame.level = level;
         for (auto& [coord, block] : blocks)
             m_frame.blocks[coord] = std::move(block);
-        m_frame.area |= (area | blockArea | wholeArea).intersected(m_before.paintArea());
+        m_frame.area |= (area | blockArea | wholeArea).intersected(m_before.rect());
         m_frame.newestStampUs = m_newestLaidUs;
         // The next frame is merged while this one is being shown, not after it's taken. One not taken yet gathers the newer tiles,
         // so what's shown is the same paint, sooner. Only where a merge costs: a mixing tool's frame is its painted tiles, and handing

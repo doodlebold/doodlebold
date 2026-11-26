@@ -290,11 +290,13 @@ const DabPainter::TileUnder& DabPainter::tileUnder(int tx, int ty, TileUnder& la
 
 Premultiplied DabPainter::cellAverage(int cx, int cy, int cell, TileUnder& last) const {
     Premultiplied total{};
+    const QRect canvas = m_layer.rect();
     for (int j = 0; j < kCellSamples; ++j) {
-        const int y = cy * cell + (2 * j + 1) * cell / (2 * kCellSamples);
+        // Past the canvas's edge, the edge's pixels again: painting stops there, and the blur sees the edge go on.
+        const int y = std::clamp(cy * cell + (2 * j + 1) * cell / (2 * kCellSamples), canvas.top(), canvas.bottom());
         const int ty = TiledImage::tileOf(y);
         for (int i = 0; i < kCellSamples; ++i) {
-            const int x = cx * cell + (2 * i + 1) * cell / (2 * kCellSamples);
+            const int x = std::clamp(cx * cell + (2 * i + 1) * cell / (2 * kCellSamples), canvas.left(), canvas.right());
             const int tx = TiledImage::tileOf(x);
             const TileUnder& under = tileUnder(tx, ty, last);
             const Premultiplied p = blurSourceAt(under.tile, under.reach, tx, ty, x, y);
@@ -413,16 +415,26 @@ DabPainter::Pixels DabPainter::readAround(const QRect& area) const {
 }
 
 // A tile at a time along the row, since looking each pixel up would cost more than reading it. Where the stroke has been, it reads what
-// was under the stroke, so the blur never spreads the stroke's own paint.
+// was under the stroke, so the blur never spreads the stroke's own paint. Past the canvas's edge it reads the edge's pixels again:
+// painting stops there, and a blur reaching past it sees the edge go on, as it would see more of the same.
 void DabPainter::readRow(Pixels& pixels, int y) const {
-    const int ty = TiledImage::tileOf(y);
+    const QRect canvas = m_layer.rect();
+    const int read = std::clamp(y, canvas.top(), canvas.bottom());
+    const int ty = TiledImage::tileOf(read);
     for (int x = pixels.area.left(); x <= pixels.area.right();) {
+        if (x < canvas.left() || x > canvas.right()) {
+            const int edge = std::clamp(x, canvas.left(), canvas.right());
+            const int tx = TiledImage::tileOf(edge);
+            pixels.at(x, y) = blurSourceAt(m_layer.tile(tx, ty), reachAt(TileCoord{tx, ty}), tx, ty, edge, read);
+            ++x;
+            continue;
+        }
         const int tx = TiledImage::tileOf(x);
-        const int end = std::min(pixels.area.right(), (tx + 1) * Tile::kSize - 1);
+        const int end = std::min({pixels.area.right(), (tx + 1) * Tile::kSize - 1, canvas.right()});
         const Tile* tile = m_layer.tile(tx, ty);
         const Reach* reach = reachAt(TileCoord{tx, ty});
         for (; x <= end; ++x)
-            pixels.at(x, y) = blurSourceAt(tile, reach, tx, ty, x, y);
+            pixels.at(x, y) = blurSourceAt(tile, reach, tx, ty, x, read);
     }
 }
 

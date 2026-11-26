@@ -422,3 +422,49 @@ TEST(SelectionPen, CancelLeavesTheSelectionAndBlocksEditsWhileRunning) {
     EXPECT_FALSE(doc.selection().has_value());
     EXPECT_TRUE(doc.selectAll());
 }
+
+namespace {
+
+class CanvasEdgePainting : public ::testing::TestWithParam<ToolType> {};
+
+void strokeAcross(Document& doc, ToolType tool, bool inBackground) {
+    StrokeController sc(&doc);
+    if (inBackground)
+        sc.paintInBackground({}, {});
+    BrushSettings st = defaultSettings(tool);
+    st.size = 24;
+    ASSERT_TRUE(sc.begin(at(20, 60), QColor(200, 30, 30), st));
+    for (double x = 40; x <= 300; x += 20)
+        sc.add(at(x, 60));
+    sc.finish();
+}
+
+}
+
+// Painting stops at the canvas's edge, for every tool and on either thread; what was moved past the edge stays as it was.
+TEST_P(CanvasEdgePainting, AStrokeOverTheEdgeLeavesWhatLiesPastItAlone) {
+    for (const bool inBackground : {false, true}) {
+        Document doc(kCanvas, Qt::white);
+        const LayerId id = doc.currentLayerId();
+        doc.paintTarget(id).value()->fill(QRect(100, 40, 60, 40), Qt::blue);
+        ASSERT_TRUE(doc.moveLayerExactly(id, transform::Turn::None, QPoint(80, 0)));  // to x 180 to 240, past the edge
+        const auto blue = doc.currentLayer()->pixels.pixel(200, 60);
+        ASSERT_GT(blue[3], 0);
+        strokeAcross(doc, GetParam(), inBackground);
+        const TiledImage& pixels = doc.currentLayer()->pixels;
+        for (int y = 40; y < 80; ++y)
+            for (int x = 180; x < 240; ++x)
+                ASSERT_EQ(pixels.pixel(x, y), blue) << x << "," << y << (inBackground ? " in the background" : "");
+        for (int x = kCanvas.width(); x < 180; ++x)
+            ASSERT_EQ(pixels.pixel(x, 60)[3], 0) << x << (inBackground ? " in the background" : "");
+        for (int x = 240; x < 320; ++x)
+            ASSERT_EQ(pixels.pixel(x, 60)[3], 0) << x << (inBackground ? " in the background" : "");
+        if (GetParam() != ToolType::Eraser && GetParam() != ToolType::Blur && GetParam() != ToolType::Smudge)
+            EXPECT_GT(pixels.pixel(kCanvas.width() - 1, 60)[3], 0) << "it paints up to the edge";
+    }
+}
+
+INSTANTIATE_TEST_SUITE_P(PaintingTools, CanvasEdgePainting,
+                         ::testing::Values(ToolType::Pencil, ToolType::Brush, ToolType::WaterColor, ToolType::Marker, ToolType::Eraser,
+                                           ToolType::Blur, ToolType::Smudge, ToolType::PixelArtPen),
+                         [](const ::testing::TestParamInfo<ToolType>& i) { return toolTypeKey(i.param).toStdString(); });
