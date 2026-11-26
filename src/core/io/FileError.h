@@ -22,6 +22,7 @@ struct FileError {
         Corrupt,             // a checksum, size, count or reference is wrong
         TooLarge,
         Unsupported,         // a valid file using a feature this reader does not have (e.g. CMYK in a PSD)
+        PluginFailed,        // the format's plugin stopped, broke its protocol or was stopped by the user (io::PluginHost)
     };
 
     FileError() = default;

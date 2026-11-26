@@ -2,6 +2,7 @@
 
 #include "core/io/FileIo.h"
 #include "core/io/FormatRegistry.h"
+#include "core/io/PluginHost.h"
 #include "core/io/PluginLoader.h"
 #include "core/layers/Compositor.h"
 
@@ -17,6 +18,9 @@ using namespace doodlebold;
 using namespace doodlebold::testing;
 
 namespace {
+
+// The helper the plugins run in, as this build made it.
+const bool kHelperFound = (io::PluginHost::setHelperPath(QStringLiteral(DOODLEBOLD_PLUGIN_HOST)), true);
 
 // These tests are about loading, so every plugin they meet was said yes to.
 io::PluginChoice allowAll(const QString&) {

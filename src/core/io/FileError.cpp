@@ -32,6 +32,7 @@ QString FileError::describe() const {
                               : tr("The image is too large.");
         break;
     case Kind::Unsupported: text = tr("The file uses a feature that is not supported."); break;
+    case Kind::PluginFailed: text = tr("The plugin for this kind of file stopped working; Options > Plugins can turn it off."); break;
     }
     return detail.isEmpty() ? text : text + QLatin1Char(' ') + detail;
 }
