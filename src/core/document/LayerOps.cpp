@@ -196,6 +196,9 @@ EditResult<> moveLayers(DocumentState& s, const std::vector<LayerId>& ids, Layer
     for (const LayerId id : parts)
         if (id == parent || (parent != kNoLayer && s.layers.isAncestor(id, parent)))
             return Failure::failure(EditError::InvalidMove);
+    for (const LayerId id : parts)
+        if (!s.layers.hasRoomForFolders(parent, LayerStack::folderLevels(*s.layers.find(id))))
+            return Failure::failure(EditError::FoldersTooDeep);
     const std::vector<const LayerNode*> before = s.layers.displayOrder();
     std::vector<LayerId> orderBefore;
     orderBefore.reserve(before.size());
