@@ -485,6 +485,15 @@ bool PluginHost::ensureRunning(QString* why) {
     return m_process != nullptr;
 }
 
+QString PluginHost::whyItEnded() {
+    std::uint32_t type = 0;
+    QByteArray body;
+    if (receive(type, body) == Wait::Got && type == std::uint32_t(pp::Message::Failed))
+        if (const auto text = messageOf(body).getText())
+            return QString::fromStdString(*text);
+    return m_process->endReason();
+}
+
 bool PluginHost::send(std::uint32_t type, const QByteArray& body) {
     const pp::Header h{type, std::uint64_t(body.size())};
     return m_process->write(reinterpret_cast<const char*>(&h), sizeof h) && m_process->write(body.constData(), std::size_t(body.size()));
@@ -547,7 +556,12 @@ Result<PluginHost::Description, QString> PluginHost::describe() {
         return R::failure(why);
     std::uint32_t type = 0;
     QByteArray body;
-    if (!send(std::uint32_t(pp::Message::Describe), {}) || receive(type, body) != Wait::Got) {
+    if (!send(std::uint32_t(pp::Message::Describe), {})) {
+        why = whyItEnded();
+        m_process.reset();
+        return R::failure(why);
+    }
+    if (receive(type, body) != Wait::Got) {
         why = m_process ? m_process->endReason() : tr("stopped");
         m_process.reset();
         return R::failure(why);
@@ -618,7 +632,7 @@ int PluginHost::read(std::uint32_t format, const doodlebold_read_host* host) {
     b.put(format);
     b.putBytes(host->data, host->size);
     if (!send(std::uint32_t(pp::Message::Read), bytesOf(b)))
-        return stopped(host->context, host->set_error, tr("(the plugin %1 stopped: %2)").arg(m_label, m_process->endReason()));
+        return stopped(host->context, host->set_error, tr("(the plugin %1 stopped: %2)").arg(m_label, whyItEnded()));
     return relayRead(host);
 }
 
@@ -742,7 +756,7 @@ int PluginHost::write(std::uint32_t format, const doodlebold_write_host* host) {
     for (std::uint32_t i = 0; i < host->layer_count; ++i)
         pp::putLayer(b, host->layers[i]);
     if (!send(std::uint32_t(pp::Message::Write), bytesOf(b)))
-        return stopped(host->context, host->set_error, tr("(the plugin %1 stopped: %2)").arg(m_label, m_process->endReason()));
+        return stopped(host->context, host->set_error, tr("(the plugin %1 stopped: %2)").arg(m_label, whyItEnded()));
     return relayWrite(host);
 }
 

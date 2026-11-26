@@ -71,6 +71,9 @@ private:
     bool ensureRunning(QString* why);
     bool send(std::uint32_t type, const QByteArray& body);
     Wait receive(std::uint32_t& type, QByteArray& body);
+    // Why the helper is gone once a message to it couldn't be sent. One that failed as it started has said why before it ended,
+    // and that is still waiting to be read.
+    QString whyItEnded();
     int relayRead(const doodlebold_read_host* host);
     int relayWrite(const doodlebold_write_host* host);
     int stopped(void* context, void (*setError)(void*, const char*), const QString& why);

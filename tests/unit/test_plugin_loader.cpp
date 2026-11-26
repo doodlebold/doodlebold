@@ -284,6 +284,7 @@ TEST(PluginLoader, AFileThatIsNotAPluginIsSkippedWithANote) {
     const auto report = io::loadFormatPlugins(*registry, {dir.path(), dir.filePath(QStringLiteral("missing")), exampleFolder()}, allowAll);
     ASSERT_EQ(report.notes.size(), 1) << qPrintable(report.notes.join(QLatin1Char('\n')));
     EXPECT_TRUE(report.notes[0].contains(name));
+    EXPECT_TRUE(report.notes[0].contains(QStringLiteral("the plugin can't be loaded"))) << "the helper says why, not only how it ended";
     EXPECT_EQ(report.loaded, QStringList{QStringLiteral("Farbfeld")}) << "the plugins after it still load";
     EXPECT_EQ(summaries(*registry).size(), before.size() + 1);
 }
