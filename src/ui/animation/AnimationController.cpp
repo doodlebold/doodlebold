@@ -530,22 +530,16 @@ void AnimationController::syncVideo() {
     const auto& video = doc->animation().video;
     auto it = m_videos.find(doc);
     if (!video) {
-        if (it != m_videos.end())
-            m_videos.erase(it);
+        dropVideo(doc);
         doc->setVideoPicture({});
         m_panel->setVideoStatus({});
         return;
     }
     if (it == m_videos.end() || !sameCache(*it->second, *video, doc->size())) {
-        if (m_reading && m_reading->doc == doc) {
-            m_reading->cancel = true;
-            m_reading->worker.join();
-            m_reading.reset();
-            m_readTimer.stop();
-        }
+        dropVideo(doc);
         m_videos[doc] = std::make_unique<VideoFrames>(*video, doc->size(), VideoFrames::defaultCacheRoot());
     }
-    if (!m_videos[doc]->isCached() && !m_reading)
+    if (!m_videos[doc]->isCached() && !m_reading && !m_unreadable.contains(m_videos[doc].get()))
         startReading(doc);
     if (!isPlaying())
         showBeat(doc->beat());
@@ -594,12 +588,30 @@ void AnimationController::pollReading() {
     m_readTimer.stop();
     const QPointer<Document> doc = r.doc;
     const QString error = r.ok ? QString() : r.error;
+    // Not read again at once: syncVideo would start the same failing read over and over, and its status would hide the error.
+    if (!r.ok)
+        m_unreadable.insert(r.frames);
     m_reading.reset();
-    if (doc == m_doc) {
+    if (doc == m_doc)
         m_panel->setVideoStatus(error.isEmpty() ? QString() : tr("The video could not be read: %1").arg(error));
-        syncVideo();
+    syncVideo();  // the current canvas's video, which may have waited for another canvas's to be read
+    if (doc == m_doc)
         m_panel->strip()->setVideoPictures([this](int index) { return laneVideoPicture(index); });
+}
+
+// A reading into the document's pictures is stopped before they go: its thread writes into them.
+void AnimationController::dropVideo(Document* doc) {
+    const auto it = m_videos.find(doc);
+    if (it == m_videos.end())
+        return;
+    if (m_reading && m_reading->frames == it->second.get()) {
+        m_reading->cancel = true;
+        m_reading->worker.join();
+        m_reading.reset();
+        m_readTimer.stop();
     }
+    m_unreadable.erase(it->second.get());
+    m_videos.erase(it);
 }
 
 void AnimationController::waitForVideo() {
@@ -616,13 +628,7 @@ void AnimationController::waitForVideo() {
 }
 
 void AnimationController::forget(Document* doc) {
-    if (m_reading && m_reading->frames == (m_videos.contains(doc) ? m_videos[doc].get() : nullptr)) {
-        m_reading->cancel = true;
-        m_reading->worker.join();
-        m_reading.reset();
-        m_readTimer.stop();
-    }
-    m_videos.erase(doc);
+    dropVideo(doc);
     m_known.erase(doc);
 }
 
