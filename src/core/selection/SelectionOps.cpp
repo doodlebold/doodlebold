@@ -317,18 +317,24 @@ SelectionMask marquee(const QSize& canvas, const QPoint& a, const QPoint& b) {
     return rectangle(canvas, QRectF(x0, y0, x1 - x0 + 1, y1 - y0 + 1), false);
 }
 
+// Only the canvas: a layer keeps pixels past its edge, but a selection is 0 there (SelectionMask), and a file holding more
+// doesn't open.
 SelectionMask fromLayerAlpha(const TiledImage& layer) {
     SelectionMask m(layer.size());
     for (const auto& [c, t] : layer.tiles()) {
-        if (!t)
+        if (!t || c.x < 0 || c.y < 0 || c.x >= m.tilesX() || c.y >= m.tilesY())
             continue;
+        const QRect tile = SelectionMask::tileRect(c.x, c.y);
+        const QRect inside = tile.intersected(m.rect()).translated(-tile.topLeft());
         SelectionTile* o = m.writableTile(c.x, c.y);
         bool any = false;
-        for (std::size_t i = 0; i < std::size_t(SelectionTile::kValues); ++i) {
-            const Channel a = t->px[i * 4 + 3];
-            o->v[i] = static_cast<std::uint16_t>(std::min<int>(a, kOne));
-            any = any || a != 0;
-        }
+        for (int y = inside.top(); y <= inside.bottom(); ++y)
+            for (int x = inside.left(); x <= inside.right(); ++x) {
+                const std::size_t i = std::size_t(y * SelectionTile::kSize + x);
+                const Channel a = t->px[i * 4 + 3];
+                o->v[i] = static_cast<std::uint16_t>(std::min<int>(a, kOne));
+                any = any || a != 0;
+            }
         if (!any)
             m.setTile(c.x, c.y, nullptr);
     }
