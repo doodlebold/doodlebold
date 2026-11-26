@@ -136,6 +136,38 @@ TEST(CanvasBackgroundStroke, ClosingWithAStrokeStillPaintingKeepsIt) {
     EXPECT_NE(doc.projection(), before);
 }
 
+// Closed with the pen still down (Ctrl+W mid-stroke, or a pen-up Windows Ink lost): the stroke is let go while the canvas is
+// still whole. Let go later, by the stroke's own destructor, its pixels being put back reached a canvas half torn down.
+TEST(CanvasBackgroundStroke, ClosingWithThePenStillDownLetsTheStrokeGo) {
+    TabletStats stats;
+    Document doc(QSize(600, 300), Qt::white);
+    const int steps = doc.undoStack()->count();
+    const QImage before = doc.projection().copy();
+    ToolBox tools;
+    {
+        CanvasView canvas(&doc, &stats);
+        canvas.setToolBox(&tools);
+        canvas.resize(800, 500);
+        canvas.show();
+        QCoreApplication::processEvents();
+        canvas.resetView();
+        QCoreApplication::processEvents();
+        const auto pen = [&](QEvent::Type type, const QPointF& docPos) {
+            const QPointF at = ViewNavigator(doc.view(), QSizeF(canvas.size()), QSizeF(doc.size())).docToWidget().map(docPos);
+            QTabletEvent event(type, QPointingDevice::primaryPointingDevice(), at, at, 0.7, 0.0, 0.0, 0.0, 0.0, 0.0, Qt::NoModifier,
+                               Qt::LeftButton, Qt::LeftButton);
+            QCoreApplication::sendEvent(&canvas, &event);
+        };
+        pen(QEvent::TabletPress, QPointF(60, 100));
+        for (int i = 1; i <= 40; ++i)
+            pen(QEvent::TabletMove, QPointF(60 + i * 12.0, 100));
+        ASSERT_TRUE(canvas.isPainting());
+    }
+    EXPECT_FALSE(doc.isPainting());
+    EXPECT_EQ(doc.undoStack()->count(), steps);
+    EXPECT_EQ(doc.projection(), before);
+}
+
 TEST(CanvasBackgroundStroke, AMixingStrokeUndoesAndRedoes) {
     Rig rig;
     ASSERT_TRUE(rig.tools.selectToolOfType(ToolType::Brush));
