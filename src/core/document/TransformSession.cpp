@@ -377,7 +377,9 @@ void TransformSession::refreshCpu(bool dragQuality) {
         LayerNode* layer = m_layers.find(moved.id);
         layer->pixels = transform::moveExactly(moved.pixels, moved.box, transform::Turn::None, m_offset);
         if (moved.mask)
-            layer->mask = transform::moveExactly(*moved.mask, moved.mask->rect(), transform::Turn::None, m_offset);
+            layer->mask = transform::carryMask(*moved.mask, [&](const SelectionMask& m) {
+                return transform::moveExactly(m, moved.box, transform::Turn::None, m_offset);
+            });
     }
     LayerNode* node = m_layers.find(m_layer);
     if (!m_moved.empty()) {
@@ -390,7 +392,8 @@ void TransformSession::refreshCpu(bool dragQuality) {
     } else if (m_kind == Kind::Move) {
         node->pixels = transform::composeOver(m_rest, transform::moveExactly(m_part, m_box, transform::Turn::None, m_offset));
         if (m_originalMask)
-            node->mask = transform::moveExactly(*m_originalMask, m_box, transform::Turn::None, m_offset);
+            node->mask = transform::carryMask(
+                *m_originalMask, [&](const SelectionMask& m) { return transform::moveExactly(m, m_box, transform::Turn::None, m_offset); });
         if (m_originalSelection) {
             SelectionMask moved = transform::moveExactly(*m_originalSelection, m_box, transform::Turn::None, m_offset);
             m_selection = moved.isEmpty() ? std::nullopt : std::optional<SelectionMask>(std::move(moved));
@@ -400,7 +403,8 @@ void TransformSession::refreshCpu(bool dragQuality) {
             transform::interactiveQuality(m_options.final, m_options.preview, m_options.dragging, dragQuality);
         node->pixels = transform::composeOver(m_rest, transform::resample(m_part, m_box, m_quad, q, m_perspective));
         if (m_originalMask)
-            node->mask = transform::resample(*m_originalMask, m_box, m_quad, q, m_perspective);
+            node->mask = transform::carryMask(
+                *m_originalMask, [&](const SelectionMask& m) { return transform::resample(m, m_box, m_quad, q, m_perspective); });
         if (m_originalSelection) {
             SelectionMask moved = transform::resample(*m_originalSelection, m_box, m_quad, q, m_perspective);
             m_selection = moved.isEmpty() ? std::nullopt : std::optional<SelectionMask>(std::move(moved));

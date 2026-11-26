@@ -28,15 +28,15 @@ std::optional<EditError> refusal(const DocumentState& s, LayerId id) {
     return std::nullopt;
 }
 
-// A linked layer mask moves with the whole layer; when only a selected part moves, an active linked mask is first
-// multiplied into the pixels. An unlinked mask stays.
+// A linked layer mask goes with the layer's painting and stays as it was everywhere else (carryMask); when only a selected
+// part moves, an active linked mask is first multiplied into the pixels. An unlinked mask stays.
 EditResult<> apply(DocumentState& s, LayerId id, const std::function<TiledImage(const TiledImage&)>& movePixels,
                    const std::function<SelectionMask(const SelectionMask&)>& moveMask) {
     LayerNode* n = s.layers.find(id);
     if (!s.selection) {
         n->pixels = movePixels(n->pixels);
         if (n->mask && n->props.maskLinked)
-            n->mask = moveMask(*n->mask);
+            n->mask = transform::carryMask(*n->mask, moveMask);
         return {};
     }
     if (n->props.maskLinked)
@@ -153,7 +153,8 @@ EditResult<> moveLayersExactly(DocumentState& s, const std::vector<LayerId>& sel
         }
         n->pixels = transform::moveExactly(n->pixels, box, transform::Turn::None, offset);
         if (n->mask && n->props.maskLinked)
-            n->mask = transform::moveExactly(*n->mask, n->mask->rect(), transform::Turn::None, offset);
+            n->mask = transform::carryMask(
+                *n->mask, [&](const SelectionMask& m) { return transform::moveExactly(m, box, transform::Turn::None, offset); });
     }
     return moved ? EditResult<>{} : Failure::failure(EditError::NoChange);
 }
