@@ -1,3 +1,4 @@
+#include "CrashStack.h"
 #include "core/document/Document.h"
 #include "core/input/TabletStats.h"
 #include "ui/CanvasView.h"
@@ -337,6 +338,7 @@ TEST(DocumentTabs, DocumentsKeepIndependentUndoAndView) {
 }
 
 int main(int argc, char** argv) {
+    printCrashStacks();
     if (!qEnvironmentVariableIsSet("QT_QPA_PLATFORM"))
         qputenv("QT_QPA_PLATFORM", "offscreen");
     QApplication app(argc, argv);

@@ -45,6 +45,10 @@ jobs:
       - name: Build, then the unit and UI tests
         run: cmake --workflow --preset windows-msvc
 
+      - name: TEMPORARY, to catch the intermittent UI crash - the UI shards again, up to ten times
+        if: always()
+        run: ctest --test-dir build-windows-msvc -L "^ui$" -j 8 --repeat until-fail:10 --timeout 300 --output-on-failure
+
       - name: Brush pixels (information only until Windows has its own checksums)
         continue-on-error: true
         run: ctest --preset windows-msvc-brush-pixels
