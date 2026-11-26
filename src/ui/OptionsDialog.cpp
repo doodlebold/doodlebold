@@ -13,6 +13,7 @@
 #include <QDialogButtonBox>
 #include <QDir>
 #include <QFileDialog>
+#include <QFileInfo>
 #include <QFrame>
 #include <QHBoxLayout>
 #include <QLabel>
@@ -36,6 +37,7 @@ constexpr QSize kOpeningSize(960, 640);  // big enough that a page's buttons sho
 constexpr QSize kLeastSize(640, 420);
 constexpr int kMemoryInUseMs = 1000;  // how often "In use now" is read again while the dialog is open
 constexpr double kMemoryStepGB = 0.5;
+constexpr int kPageRowHeight = 34;  // component metric: a page list row, px (the style sheet's padding alone keeps it short)
 
 QString gb(double value) {
     return QString::number(value, 'f', 1);
@@ -109,7 +111,7 @@ OptionsDialog::OptionsDialog(const AppOptions::Values& initial, QWidget* parent)
 
     for (int i = 0; i < m_pages->count(); ++i)
         // The style sheet's padding alone does not make a list row taller.
-        m_pages->item(i)->setSizeHint(QSize(0, 34));
+        m_pages->item(i)->setSizeHint(QSize(0, kPageRowHeight));
 
     m_minimumPressure->setValue(v.minimumPressure);
     m_fullPressure->setValue(v.fullPressure);
@@ -169,8 +171,32 @@ void OptionsDialog::addResourcesPage(BrushResourceLibrary* library, ToolBox* too
         if (m_pages->item(i)->text() == tr("Timelapse"))
             at = i;
     m_pages->insertItem(at, tr("Resources"));
-    m_pages->item(at)->setSizeHint(QSize(0, 34));
+    m_pages->item(at)->setSizeHint(QSize(0, kPageRowHeight));
     m_stack->insertWidget(at, new ResourcesPage(library, tools));
+}
+
+// Each plugin found at start, on while the user allows it. A change is kept at once, by the file's contents (io::savePluginChoice),
+// and takes effect at the next start: a plugin's code can't be taken out of a running program.
+void OptionsDialog::addPluginsPage(const std::vector<io::FoundPlugin>& found) {
+    QVBoxLayout* page = newPage();
+    QVBoxLayout* layout = addSection(page, tr("Format Plugins"));
+    for (const io::FoundPlugin& plugin : found) {
+        QCheckBox* load = option(QFileInfo(plugin.path).fileName(), "pluginCheck", plugin.choice == io::PluginChoice::Allowed);
+        load->setToolTip(QDir::toNativeSeparators(plugin.path));
+        connect(load, &QCheckBox::toggled, this, [hash = plugin.hash, path = plugin.path](bool on) {
+            io::savePluginChoice(hash, path, on ? io::PluginChoice::Allowed : io::PluginChoice::Refused);
+        });
+        layout->addWidget(load);
+    }
+    if (found.empty())
+        layout->addWidget(help(tr("No plugins were found. Doodlebold looks in:\n%1")
+                                   .arg(QDir::toNativeSeparators(io::pluginFolders().join(QLatin1Char('\n'))))));
+    layout->addWidget(help(tr("A plugin runs inside Doodlebold with your rights, and can do anything you can: turn on only plugins you "
+                              "trust. A change takes effect when Doodlebold starts again. Hold Shift as it starts to start it "
+                              "without any plugin.")));
+    m_pages->addItem(tr("Plugins"));
+    m_pages->item(m_pages->count() - 1)->setSizeHint(QSize(0, kPageRowHeight));
+    m_stack->addWidget(pageOf(page));
 }
 
 QWidget* OptionsDialog::penTabletPage() {

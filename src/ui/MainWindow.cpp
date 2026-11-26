@@ -29,6 +29,7 @@
 #include "ui/SelectionGrowDialog.h"
 #include "ui/TabletDiagnosticsDialog.h"
 #include "ui/TabletInput.h"
+#include "ui/PluginQuestions.h"
 #include "ui/Theme.h"
 #include "ui/UpdateNotice.h"
 #include "core/color/ColorAssets.h"
@@ -590,6 +591,7 @@ void MainWindow::showOptions(bool atMemory) {
     if (atMemory)
         dlg->showMemorySection();
     dlg->addResourcesPage(m_brushResources, m_tools);
+    dlg->addPluginsPage(m_plugins.found);
     dlg->setAttribute(Qt::WA_DeleteOnClose);
     dlg->keysPage()->setTable(keyTable());
     if (CanvasView* canvas = m_tabs->currentCanvas())
@@ -629,10 +631,53 @@ void MainWindow::offerRecovery() {
 }
 
 void MainWindow::showStartDialogs(const QString& crashReport) {
-    if (crashReport.isEmpty())
+    const auto rest = [this] {
+        askAboutPlugins();
         offerRecovery();
+    };
+    if (crashReport.isEmpty())
+        rest();
     else
-        connect(showCrashReport(crashReport, true), &QDialog::finished, this, &MainWindow::offerRecovery);
+        connect(showCrashReport(crashReport, true), &QDialog::finished, this, rest);
+}
+
+void MainWindow::setPlugins(io::PluginLoadReport plugins, bool startedWithout) {
+    m_plugins = std::move(plugins);
+    m_startedWithoutPlugins = startedWithout;
+}
+
+void MainWindow::askAboutPlugins() {
+    if (m_startedWithoutPlugins)
+        showError(tr("Doodlebold started without its plugins (Shift was held, or --no-plugins)."));
+    const qsizetype notesBefore = m_plugins.notes.size();
+    for (io::FoundPlugin& plugin : m_plugins.found) {
+        if (plugin.heldBack) {
+            plugin.heldBack = false;
+            if (plugin_questions::keepOffAfterCrash(this, plugin.path)) {
+                plugin.choice = io::PluginChoice::Refused;
+                io::savePluginChoice(plugin.hash, plugin.path, plugin.choice);
+            } else {
+                io::loadAllowedPlugin(plugin.path, FormatRegistry::instance(), m_plugins);
+            }
+            continue;
+        }
+        if (plugin.choice != io::PluginChoice::Unasked)
+            continue;
+        switch (plugin_questions::askAboutNew(this, plugin.path)) {
+        case plugin_questions::NewPluginAnswer::Load:
+            plugin.choice = io::PluginChoice::Allowed;
+            io::savePluginChoice(plugin.hash, plugin.path, plugin.choice);
+            io::loadAllowedPlugin(plugin.path, FormatRegistry::instance(), m_plugins);
+            break;
+        case plugin_questions::NewPluginAnswer::Never:
+            plugin.choice = io::PluginChoice::Refused;
+            io::savePluginChoice(plugin.hash, plugin.path, plugin.choice);
+            break;
+        case plugin_questions::NewPluginAnswer::NotNow: break;
+        }
+    }
+    if (m_plugins.notes.size() > notesBefore)
+        QMessageBox::information(this, tr("Plugins"), m_plugins.notes.mid(notesBefore).join(QStringLiteral("\n\n")));
 }
 
 void MainWindow::showAbout() {

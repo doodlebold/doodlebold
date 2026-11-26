@@ -2,6 +2,7 @@
 
 #include "core/document/Clipboard.h"
 #include "core/document/EditError.h"
+#include "core/io/PluginLoader.h"
 #include "core/layers/CanvasBackground.h"
 #include "core/layers/LayerId.h"
 #include "core/options/KeyTable.h"
@@ -96,9 +97,12 @@ public slots:
     CrashReportDialog* showCrashReport(const QString& report, bool afterCrash);
     // The canvases a run that didn't close left recovery copies of, if there are any.
     void offerRecovery();
-    // At start: the last run's crash report if it crashed, then the canvases to recover, one after the other so that neither
-    // dialog covers the other.
+    // At start: the last run's crash report if it crashed, then the questions about plugins (askAboutPlugins), then the canvases
+    // to recover, one after the other so that no dialog covers another.
     void showStartDialogs(const QString& crashReport);
+    // The plugins the start found (main.cpp), for the questions at start and Options › Plugins; `startedWithout` when the user
+    // started without them (Shift held, or --no-plugins).
+    void setPlugins(io::PluginLoadReport plugins, bool startedWithout);
 
 protected:
     void closeEvent(QCloseEvent* e) override;
@@ -220,6 +224,8 @@ private:
     void settleStrokesBefore(QObject* watched, QEvent* e);
     bool worksWhileAStrokePaints(const QWidget* widget) const;
     void showError(const QString& text);
+    // A plugin the last crash was in waits for the user's say; one not seen before (or changed) is offered.
+    void askAboutPlugins();
     void withCanvas(const std::function<void(CanvasView*)>& f);
     void withLayer(const std::function<void(Document*, LayerId)>& f);
     void onCurrentDocumentChanged();
@@ -231,6 +237,8 @@ private:
     ToolBox* m_tools;
     DocumentTabs* m_tabs;
     ToastStack* m_toasts = nullptr;
+    io::PluginLoadReport m_plugins;
+    bool m_startedWithoutPlugins = false;
     FileController* m_files = nullptr;
     AppOptions* m_options = nullptr;
     RecoveryController* m_recovery = nullptr;

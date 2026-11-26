@@ -13,6 +13,13 @@
 #include <QOpenGLContext>
 #include <QTimer>
 
+namespace {
+
+// Starts without any plugin, as holding Shift does: past one that keeps Doodlebold from starting.
+const QString kNoPluginsArgument = QStringLiteral("--no-plugins");
+
+}
+
 int main(int argc, char* argv[]) {
     // Every tablet event must reach the stroke.
     QCoreApplication::setAttribute(Qt::AA_CompressTabletEvents, false);
@@ -51,8 +58,18 @@ int main(int argc, char* argv[]) {
         return 1;
     }
 
-    // Format plugins join Open and Save before the window lists the formats.
-    const auto plugins = doodlebold::io::loadFormatPlugins(doodlebold::FormatRegistry::instance());
+    // Format plugins join Open and Save before the window lists the formats: those the user allowed, unless they start without any
+    // (Shift held, or --no-plugins) to get past one that keeps the program from starting. One the last crash was in waits for
+    // their say (MainWindow::askAboutPlugins).
+    QStringList arguments = QApplication::arguments().mid(1);
+    const bool withoutPlugins =
+        arguments.removeAll(kNoPluginsArgument) > 0 || QGuiApplication::queryKeyboardModifiers().testFlag(Qt::ShiftModifier);
+    const QString crashed = doodlebold::crash_report::takeNewReport();
+    doodlebold::io::PluginLoadReport plugins;
+    if (!withoutPlugins)
+        plugins = doodlebold::io::loadFormatPlugins(doodlebold::FormatRegistry::instance(), doodlebold::io::pluginFolders(),
+                                                    doodlebold::io::savedPluginChoice,
+                                                    doodlebold::io::pluginsNamedIn(crashed, doodlebold::io::pluginFiles()));
 
     doodlebold::MainWindow window;
     window.show();
@@ -60,8 +77,9 @@ int main(int argc, char* argv[]) {
         QTimer::singleShot(0, &window, [&window, notes = plugins.notes] {
             QMessageBox::information(&window, QCoreApplication::translate("main", "Plugins"), notes.join(QStringLiteral("\n\n")));
         });
-    QTimer::singleShot(0, &window, [&window, crashed = doodlebold::crash_report::takeNewReport()] { window.showStartDialogs(crashed); });
-    window.openFiles(QApplication::arguments().mid(1));
+    window.setPlugins(std::move(plugins), withoutPlugins);
+    QTimer::singleShot(0, &window, [&window, crashed] { window.showStartDialogs(crashed); });
+    window.openFiles(arguments);
     window.checkForUpdatesAtStart();
     const int status = QApplication::exec();
     doodlebold::crash_report::uninstall();

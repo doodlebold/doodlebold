@@ -1,5 +1,6 @@
 #pragma once
 
+#include "core/io/PluginLoader.h"
 #include "core/options/AppOptions.h"
 
 #include <QDialog>
@@ -29,6 +30,8 @@ public:
     AppOptions::Values values() const;
     // Options > Resources, before the Timelapse page. Its changes take effect at once, not on OK.
     void addResourcesPage(BrushResourceLibrary* library, ToolBox* tools = nullptr);
+    // Options › Plugins, last: the plugins found at start, each switched on or off for the next start.
+    void addPluginsPage(const std::vector<io::FoundPlugin>& found);
     // Options › Keys: the caller gives it the keys of the commands and the tray, and reads them back on OK.
     KeysPage* keysPage() const { return m_keys; }
     // What the graphics chose for the current canvas, shown while "Display when zoomed out" is left to them (Smooth if not told).
