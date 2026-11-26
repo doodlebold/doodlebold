@@ -32,6 +32,14 @@ int radiusOf(const QWidget* popup) {
     return Theme::metric(qobject_cast<const QMenu*>(popup) ? Theme::Metric::Radius : Theme::Metric::RadiusSmall);
 }
 
+// Windows can hand a new dialog's window a size of its own while Qt is still making it, and the dialog's layout polishes the
+// dialog on that resize: destroying the window there crashes Qt, which goes on using it. Qt gives a window its backing store
+// once it is made.
+bool windowBeingMade(const QWidget* popup) {
+    const QWindow* window = popup->windowHandle();
+    return window && window->handle() && !popup->backingStore();
+}
+
 }
 
 GlassPopups::GlassPopups(Blur blur, QObject* parent) : QObject(parent), m_blur(std::move(blur)) {
@@ -111,7 +119,8 @@ bool GlassPopups::eventFilter(QObject* watched, QEvent* event) {
     if (!isGlassKind(popup))
         return false;
     if (event->type() == QEvent::Polish) {
-        if (s_frosted && !popup->property(kGlass).toBool())
+        // A popup polished while its window is being made stays plain this time, and turns glass once hidden.
+        if (s_frosted && !popup->property(kGlass).toBool() && !windowBeingMade(popup))
             makeGlass(popup);
     } else if (event->type() == QEvent::Hide) {
         // A popup that was on screen when the option changed follows it once it's closed.
