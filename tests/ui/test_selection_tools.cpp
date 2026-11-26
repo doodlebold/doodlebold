@@ -624,6 +624,44 @@ TEST_F(CanvasToolsTest, EscapeDropsAMoveDrag) {
     EXPECT_EQ(r.canvas.transformSession(), nullptr);
 }
 
+TEST_F(CanvasToolsTest, EscapeDropsAMarqueeMoveDrag) {
+    r.paint(QRect(60, 40, 40, 40), Qt::red);
+    r.use(FixedTool::Marquee);
+    const int before = r.steps();
+    r.press({70.5, 50.5}, Qt::ControlModifier | Qt::ShiftModifier);
+    r.move({90.5, 70.5}, Qt::ControlModifier | Qt::ShiftModifier);
+    r.key(Qt::Key_Escape);
+    r.release({90.5, 70.5});
+    EXPECT_EQ(r.steps(), before);
+    EXPECT_EQ(r.content(), QRect(60, 40, 40, 40));
+    EXPECT_EQ(r.canvas.transformSession(), nullptr);
+}
+
+// Copy, cut, paste and the layer turns commit the open move before they run, which can be while the move is still being dragged.
+TEST_F(CanvasToolsTest, AMoveDragOutlivesItsSessionBeingCommitted) {
+    r.paint(QRect(60, 40, 40, 40), Qt::red);
+    r.use(FixedTool::Move);
+    r.press({70.5, 50.5});
+    r.move({80.5, 50.5});
+    r.canvas.commitTransform();
+    r.move({90.5, 50.5});
+    r.release({90.5, 50.5});
+    EXPECT_EQ(r.content(), QRect(70, 40, 40, 40));
+    EXPECT_EQ(r.canvas.transformSession(), nullptr);
+}
+
+TEST_F(CanvasToolsTest, AMarqueeMoveDragOutlivesItsSessionBeingCommitted) {
+    r.paint(QRect(60, 40, 40, 40), Qt::red);
+    r.use(FixedTool::Marquee);
+    r.press({70.5, 50.5}, Qt::ControlModifier | Qt::ShiftModifier);
+    r.move({80.5, 50.5}, Qt::ControlModifier | Qt::ShiftModifier);
+    r.canvas.commitTransform();
+    r.move({90.5, 50.5}, Qt::ControlModifier | Qt::ShiftModifier);
+    r.release({90.5, 50.5});
+    EXPECT_EQ(r.content(), QRect(70, 40, 40, 40));
+    EXPECT_EQ(r.canvas.transformSession(), nullptr);
+}
+
 TEST_F(CanvasToolsTest, MarqueeCutAndMoveWithoutModifierKey) {
     r.paint(QRect(60, 40, 40, 40), Qt::red);
     r.use(FixedTool::Marquee);
