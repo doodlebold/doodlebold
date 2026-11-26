@@ -159,19 +159,19 @@ std::atomic<bool>& freedSinceGivenBack() {
     return freed;
 }
 
-// The tiles a stroke `diameter` across reaches going once across `canvas`, corner to corner, within the area it can paint.
+// The tiles a stroke `diameter` across reaches going once across `canvas`, corner to corner, within the canvas and the margin round it.
 double tilesOfCrossing(double diameter, QSize canvas) {
     const double across = diameter + Tile::kSize;
     const double along = std::hypot(canvas.width(), canvas.height()) + diameter;
-    const double paintable = double(canvas.width() + 2 * TiledImage::kOffCanvas) * (canvas.height() + 2 * TiledImage::kOffCanvas);
+    const double paintable = double(canvas.width() + 2 * TiledImage::kNearCanvas) * (canvas.height() + 2 * TiledImage::kNearCanvas);
     return std::min(across * along, paintable) / (Tile::kSize * Tile::kSize);
 }
 
-// The pixels of the block round one dab, within the area it can paint.
+// The pixels of the block round one dab, within the canvas and the margin round it.
 double dabBlockPixels(double diameter, QSize canvas) {
     const double side = 2.0 * diameter;
-    const double width = std::min(side, double(canvas.width() + 2 * TiledImage::kOffCanvas));
-    const double height = std::min(side, double(canvas.height() + 2 * TiledImage::kOffCanvas));
+    const double width = std::min(side, double(canvas.width() + 2 * TiledImage::kNearCanvas));
+    const double height = std::min(side, double(canvas.height() + 2 * TiledImage::kNearCanvas));
     return width * height;
 }
 

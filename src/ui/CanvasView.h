@@ -226,6 +226,8 @@ private:
     ToolPointer pointer(const InputSample& s, const QPointF& widgetPos, Qt::KeyboardModifiers mods) const;
     void endSession();
     void pullSessionDirty();
+    // The GPU draws a transform's lifted pixels from one texture of its box, so it can while the box fits in one.
+    bool canFloat(const TransformSession& session) const;
     const SelectionMask* displayedSelection() const;
     bool selectionShownAsArea() const;
     void takeKeyboardFocus();

@@ -26,8 +26,9 @@ struct Px {
 
 inline constexpr int kTilePixels = Tile::kSize * Tile::kSize;
 
-// The layer's tiles in a flat table over its whole paint area, so reading a pixel costs no hash lookup. With `edges`, a pixel
-// outside it reads as the nearest one inside (the canvas's border carries on outwards).
+// The layer's tiles in a flat table over the canvas and the margin round it (TiledImage::nearArea()), so reading a pixel there
+// costs no hash lookup; a tile farther out is looked up in the layer. With `edges`, a pixel outside it reads as the nearest one
+// inside (the canvas's border carries on outwards).
 class TileGrid {
 public:
     explicit TileGrid(const TiledImage& image, const QRect& edges = {});
@@ -43,6 +44,7 @@ private:
     void readRun(int y, int x0, int n, float* out) const;
     void readInside(int y, int x0, int n, float* out) const;
 
+    const TiledImage* m_image;
     QRect m_edges;
     int m_tx0 = 0, m_ty0 = 0, m_cols = 0, m_rows = 0;
     std::vector<const Tile*> m_tiles;
