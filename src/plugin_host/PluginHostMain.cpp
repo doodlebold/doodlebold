@@ -17,7 +17,9 @@
 
 #ifdef _WIN32
 #define WIN32_LEAN_AND_MEAN
+#ifndef NOMINMAX
 #define NOMINMAX
+#endif
 #include <windows.h>
 
 #include <fcntl.h>
@@ -385,9 +387,8 @@ void write(Bytes& body) {
 
 }
 
-// The protocol keeps copies of standard input and output of its own, and the plugin's standard input and output become the null
-// device: a plugin that prints, or reads its input, would otherwise break the messages.
-bool takeStandardStreams() {
+// The protocol keeps copies of standard input and output of its own.
+bool keepProtocolStreams() {
 #ifdef _WIN32
     const auto own = [](DWORD which) {
         HANDLE copy = nullptr;
@@ -396,22 +397,45 @@ bool takeStandardStreams() {
     };
     g_in = own(STD_INPUT_HANDLE);
     g_out = own(STD_OUTPUT_HANDLE);
-    const int null = _open("NUL", _O_RDWR);
-    if (!g_in || !g_out || null < 0 || _dup2(null, 0) != 0 || _dup2(null, 1) != 0)
-        return false;
-    const auto nullHandle = reinterpret_cast<HANDLE>(_get_osfhandle(null));
-    return SetStdHandle(STD_INPUT_HANDLE, nullHandle) && SetStdHandle(STD_OUTPUT_HANDLE, nullHandle);
+    return g_in && g_out;
 #else
     g_in = fcntl(0, F_DUPFD_CLOEXEC, 3);
     g_out = fcntl(1, F_DUPFD_CLOEXEC, 3);
+    return g_in >= 0 && g_out >= 0;
+#endif
+}
+
+// The plugin's standard input and output become the null device: a plugin that prints, or reads its input, would otherwise break
+// the messages.
+const char* setStandardStreamsAside() {
+#ifdef _WIN32
+    // A C library the plugin brings takes its streams from these as it loads.
+    const HANDLE null = CreateFileW(L"NUL", GENERIC_READ | GENERIC_WRITE, FILE_SHARE_READ | FILE_SHARE_WRITE, nullptr, OPEN_EXISTING, 0, nullptr);
+    if (null == INVALID_HANDLE_VALUE)
+        return "the helper can't open the null device";
+    if (!SetStdHandle(STD_INPUT_HANDLE, null) || !SetStdHandle(STD_OUTPUT_HANDLE, null))
+        return "the helper can't set its standard streams aside";
+#ifndef _MSC_VER
+    // MinGW's C library is a system library the plugin may share, with its streams open already. Built with MSVC, the helper's
+    // own is linked in (/MT), so no plugin's is ever the same one.
+    const int crtNull = _open("NUL", _O_RDWR);
+    if (crtNull < 0 || _dup2(crtNull, 0) != 0 || _dup2(crtNull, 1) != 0)
+        return "the helper can't set its C library's standard streams aside";
+#endif
+    return nullptr;
+#else
     const int null = open("/dev/null", O_RDWR | O_CLOEXEC);
-    return g_in >= 0 && g_out >= 0 && null >= 0 && dup2(null, 0) == 0 && dup2(null, 1) == 1;
+    if (null < 0 || dup2(null, 0) != 0 || dup2(null, 1) != 1)
+        return "the helper can't set its standard streams aside";
+    return nullptr;
 #endif
 }
 
 int main(int argc, char** argv) {
-    if (!takeStandardStreams())
-        endHelper(1);
+    if (!keepProtocolStreams())
+        endHelper(1);  // with nothing to say it on
+    if (const char* why = setStandardStreamsAside())
+        sendText(Message::Failed, why), endHelper(1);
     if (const char* why = restrictBeforeLoading(argc, argv))
         sendText(Message::Failed, why), endHelper(1);
     const doodlebold_plugin* plugin = nullptr;

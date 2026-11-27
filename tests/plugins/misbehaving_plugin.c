@@ -11,6 +11,11 @@
 #include <stdio.h>
 #include <string.h>
 
+#if defined(HANG)
+// Never set, and read each time round as it is volatile: the loop goes on until the helper is stopped.
+static volatile int never_set = 0;
+#endif
+
 static int read_misbehaving(const doodlebold_read_host* host) {
 #if defined(CRASH)
     volatile int* nowhere = NULL;
@@ -18,10 +23,10 @@ static int read_misbehaving(const doodlebold_read_host* host) {
     (void)host;
     return DOODLEBOLD_ERROR_CORRUPT;
 #elif defined(HANG)
-    volatile unsigned long spins = 0;
     (void)host;
-    for (;;)
-        ++spins;
+    while (!never_set) {
+    }
+    return DOODLEBOLD_ERROR_CORRUPT;
 #else
     char path[1024];
     const size_t n = host->size < sizeof path - 1 ? host->size : sizeof path - 1;
