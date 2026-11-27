@@ -16,6 +16,11 @@
  *   between calls.
  * - Every struct starts with its own size, `struct_size`, so that a later version can add fields at the end. Whoever fills
  *   a struct sets it to sizeof() the struct as they compiled it.
+ * - A plugin runs in a process of its own, never inside Doodlebold, and only once the user has allowed that very file. It
+ *   gets a file's bytes in read() and gives everything back through these functions. It may not open files, use the network,
+ *   or start programs or threads: Windows refuses (an AppContainer), and on Linux the process ends at the attempt (seccomp).
+ *   What it prints is discarded. It is loaded from a copy of itself, so it must be one self-contained file: link what it
+ *   needs statically.
  */
 #ifndef DOODLEBOLD_FORMAT_PLUGIN_H
 #define DOODLEBOLD_FORMAT_PLUGIN_H

@@ -379,6 +379,21 @@ PluginFormat::PluginFormat(std::shared_ptr<QLibrary> library, const doodlebold_f
     m_format.id = m_format.name = m_format.extensions = nullptr;
 }
 
+PluginFormat::PluginFormat(std::shared_ptr<io::PluginHost> host, std::uint32_t index, const io::PluginHost::Format& format,
+                           QStringList extensions)
+    : m_host(std::move(host)),
+      m_index(index),
+      m_reads(format.reads),
+      m_writes(format.writes),
+      m_recognizes(format.recognizes),
+      m_format{},
+      m_id(format.id),
+      m_name(format.name),
+      m_extensions(std::move(extensions)) {
+    m_format.struct_size = format.structSize;
+    m_format.flags = format.flags;
+}
+
 DocumentFormat::Features PluginFormat::features() const {
     Features f;
     f.layers = (m_format.flags & DOODLEBOLD_FORMAT_LAYERS) != 0;
@@ -387,6 +402,11 @@ DocumentFormat::Features PluginFormat::features() const {
 }
 
 bool PluginFormat::recognizes(QIODevice& device) const {
+    if (m_host) {
+        if (!m_recognizes || !m_reads)
+            return false;
+        return m_host->recognizes(m_index, device.read(kSniffBytes));
+    }
     if (!m_format.recognizes || !m_format.read)
         return false;
     const QByteArray head = device.read(kSniffBytes);
@@ -395,7 +415,7 @@ bool PluginFormat::recognizes(QIODevice& device) const {
 
 FileResult<LoadedDocument> PluginFormat::read(QIODevice& device) const {
     using R = FileResult<LoadedDocument>;
-    if (!m_format.read)
+    if (!canRead())
         return DocumentFormat::read(device);
     if (!device.isSequential() && device.size() > kMaxPluginFile)
         return R::failure({FileError::Kind::TooLarge, QStringLiteral("(file)")});
@@ -409,7 +429,9 @@ FileResult<LoadedDocument> PluginFormat::read(QIODevice& device) const {
                                     addLayer,
                                     note,
                                     setReadError};
-    const int code = m_format.read(&host);
+    const int code = m_host ? m_host->read(m_index, &host) : m_format.read(&host);
+    if (code == io::PluginHost::kStopped)
+        return R::failure({FileError::Kind::PluginFailed, s.error});
     if (code != DOODLEBOLD_OK && s.tooLarge.isValid())
         return R::failure(FileError::canvasTooLarge(s.tooLarge, false));
     if (code != DOODLEBOLD_OK)
@@ -418,7 +440,7 @@ FileResult<LoadedDocument> PluginFormat::read(QIODevice& device) const {
 }
 
 FileResult<> PluginFormat::write(const DocumentContent& content, QIODevice& device, const ExportOptions& options) const {
-    if (!m_format.write)
+    if (!canWrite())
         return DocumentFormat::write(content, device, options);
     WriteSession s;
     s.content = &content;
@@ -438,7 +460,9 @@ FileResult<> PluginFormat::write(const DocumentContent& content, QIODevice& devi
     host.get_composite = getComposite;
     host.write = writeBytes;
     host.set_error = setWriteError;
-    const int code = m_format.write(&host);
+    const int code = m_host ? m_host->write(m_index, &host) : m_format.write(&host);
+    if (code == io::PluginHost::kStopped)
+        return FileResult<>::failure({FileError::Kind::PluginFailed, s.error});
     if (code != DOODLEBOLD_OK)
         return FileResult<>::failure({kindFor(code), s.error});
     return {};

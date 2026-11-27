@@ -35,6 +35,7 @@ add_executable(doodlebold_unit_tests
   unit/test_compositor.cpp
   unit/test_layer_paper.cpp
   unit/test_format_plugins.cpp
+  unit/test_plugin_host.cpp
   unit/test_plugin_loader.cpp
   unit/test_ffmpeg.cpp
   unit/test_app_identity.cpp
@@ -84,9 +85,17 @@ foreach(variant NO_ENTRY FUTURE_VERSION DECLINES BROKEN_FORMATS CLAIMS)
   target_compile_definitions(test_plugin_${folder} PRIVATE ${variant})
   list(APPEND test_plugin_targets test_plugin_${folder})
 endforeach()
-add_dependencies(doodlebold_unit_tests farbfeld test_plugin_layer_dump ${test_plugin_targets})
+# Plugins that crash, hang or pry, for io::PluginHost's tests.
+foreach(variant CRASH HANG PRY)
+  string(TOLOWER ${variant} folder)
+  doodlebold_add_format_plugin(test_plugin_${folder} OUTPUT_DIRECTORY "${test_plugins}/${folder}" SOURCES plugins/misbehaving_plugin.c)
+  target_compile_definitions(test_plugin_${folder} PRIVATE ${variant})
+  list(APPEND test_plugin_targets test_plugin_${folder})
+endforeach()
+add_dependencies(doodlebold_unit_tests farbfeld test_plugin_layer_dump ${test_plugin_targets} doodlebold-plugin-host)
 target_compile_definitions(doodlebold_unit_tests PRIVATE DOODLEBOLD_TEST_PLUGIN_DIR="${test_plugins}"
-                           DOODLEBOLD_EXAMPLE_PLUGIN_DIR="$<TARGET_FILE_DIR:doodlebold>/plugins")
+                           DOODLEBOLD_EXAMPLE_PLUGIN_DIR="$<TARGET_FILE_DIR:doodlebold>/plugins"
+                           DOODLEBOLD_PLUGIN_HOST="$<TARGET_FILE:doodlebold-plugin-host>")
 # A home of their own, as the UI tests have: the tests never see the real settings or files of this computer.
 set(unit_home "${CMAKE_CURRENT_BINARY_DIR}/unit-home")
 file(MAKE_DIRECTORY "${unit_home}")

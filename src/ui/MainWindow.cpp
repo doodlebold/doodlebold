@@ -4,6 +4,7 @@
 #include "core/document/Document.h"
 #include "core/input/TabletStats.h"
 #include "core/io/FormatRegistry.h"
+#include "core/io/PluginHost.h"
 #include "core/options/AppOptions.h"
 #include "core/tools/ToolBox.h"
 #include "core/tools/ToolBoxStore.h"
@@ -55,6 +56,7 @@
 #include <QOpenGLWidget>
 #include <QMenuBar>
 #include <QMessageBox>
+#include <QThread>
 #include <QPushButton>
 #include <QVBoxLayout>
 #include <QDragEnterEvent>
@@ -102,6 +104,17 @@ MainWindow::MainWindow(QWidget* parent)
     centralLayout->addWidget(m_tabs, 1);
     setCentralWidget(central);
     m_toasts = new ToastStack(this, m_tabs);
+    // A plugin that has sent nothing for a while: the user says whether to wait. Files are read and written on other threads too,
+    // so the question is asked on this one, the window's.
+    io::PluginHost::setHangHandler([this](const QString& plugin) {
+        bool wait = true;
+        const auto ask = [&] { wait = plugin_questions::keepWaitingFor(this, plugin); };
+        if (QThread::currentThread() == thread())
+            ask();
+        else
+            QMetaObject::invokeMethod(this, ask, Qt::BlockingQueuedConnection);
+        return wait;
+    });
     setAcceptDrops(true);
     m_files = new FileController(m_tabs, FormatRegistry::instance(), this, this);
     connect(m_files, &FileController::documentCreated, this, &MainWindow::addDocument);
@@ -159,6 +172,7 @@ MainWindow::MainWindow(QWidget* parent)
 }
 
 MainWindow::~MainWindow() {
+    io::PluginHost::setHangHandler([](const QString&) { return true; });  // it asked through this window
     // The documents are deleted with the tabs, after this class's members: their signals must not reach it by then.
     for (const QMetaObject::Connection& c : m_documentConnections)
         disconnect(c);

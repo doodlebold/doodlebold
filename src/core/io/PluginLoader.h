@@ -50,8 +50,9 @@ void savePluginChoice(const QString& hash, const QString& path, PluginChoice cho
 QStringList pluginsNamedIn(const QString& crashReport, const QStringList& paths);
 
 // Loads the format plugins (plugins/include/doodlebold/format_plugin.h) in `folders` that `choiceOf` says were allowed, in order and
-// by file name, and adds their formats to `registry` after the built-in ones. A plugin is hashed before it is loaded, as loading
-// runs its code. Those unasked or refused are listed in `found` and not loaded, as are allowed ones `heldBack` names (file paths).
+// by file name, and adds their formats to `registry` after the built-in ones. A plugin is hashed before it is loaded, and runs in a
+// process of its own (PluginHost), from a copy checked against that hash: its code never runs in Doodlebold. Those unasked or
+// refused are listed in `found` and not loaded, as are allowed ones `heldBack` names (file paths).
 // A file that isn't a plugin, a plugin built for another interface version and a format that doesn't fit are skipped with a note.
 // A plugin can't take an extension a built-in format has, apart from those of the read-only "Other pictures" of Qt's image plugins,
 // nor one an earlier plugin took.

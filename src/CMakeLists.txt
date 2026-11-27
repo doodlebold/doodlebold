@@ -51,6 +51,7 @@ add_library(doodlebold_core STATIC
   core/io/FormatRegistry.cpp core/io/FormatRegistry.h
   core/io/PluginFormat.cpp core/io/PluginFormat.h
   core/io/PluginLoader.cpp core/io/PluginLoader.h
+  core/io/PluginHost.cpp core/io/PluginHost.h plugin_host/PluginHostProtocol.h
   core/io/PsdFormat.cpp core/io/PsdFormat.h
   core/io/RecoveryStore.cpp core/io/RecoveryStore.h
   core/layers/BlendMode.cpp core/layers/BlendMode.h
@@ -134,6 +135,9 @@ find_package(JPEG REQUIRED)
 find_package(Threads REQUIRED)
 target_link_libraries(doodlebold_core PUBLIC Qt6::Core Qt6::Gui Threads::Threads)
 target_link_libraries(doodlebold_core PRIVATE JPEG::JPEG doodlebold_miniz)
+if(WIN32)
+  target_link_libraries(doodlebold_core PRIVATE userenv advapi32 shell32 ole32)  # the plugin helper's AppContainer (io::PluginHost)
+endif()
 # Hash characters shown: 7, git's and GitHub's own short length, so a reported hash reads as it does there.
 set(doodlebold_commit_length 7)
 # The commit only where GitHub names it, so no build needs git; a local build shows the version alone.
@@ -352,3 +356,22 @@ install(FILES ${CMAKE_SOURCE_DIR}/third_party/Inter-OFL.txt DESTINATION ${CMAKE_
 install(FILES ${CMAKE_SOURCE_DIR}/third_party/LGPL-3.0.txt ${CMAKE_SOURCE_DIR}/third_party/GPL-3.0.txt
               ${CMAKE_SOURCE_DIR}/third_party/LGPL-2.1.txt ${CMAKE_SOURCE_DIR}/THIRD-PARTY-NOTICES.txt
         DESTINATION ${CMAKE_INSTALL_DATADIR}/licenses/doodlebold)
+
+# The process a format plugin runs in (src/plugin_host, io::PluginHost), next to the program. It links nothing of Doodlebold's and,
+# statically, no runtime: it is started where it may read only itself and the plugin.
+add_executable(doodlebold-plugin-host plugin_host/PluginHostMain.cpp plugin_host/PluginHostRestrictions.cpp
+               plugin_host/PluginHostProtocol.h plugin_host/PluginHostRestrictions.h)
+target_include_directories(doodlebold-plugin-host PRIVATE ${CMAKE_CURRENT_SOURCE_DIR} ${CMAKE_SOURCE_DIR}/plugins/include)
+doodlebold_set_warnings(doodlebold-plugin-host)
+if(WIN32)
+  target_link_libraries(doodlebold-plugin-host PRIVATE shell32)
+endif()
+if(MSVC)
+  set_property(TARGET doodlebold-plugin-host PROPERTY MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
+elseif(WIN32)
+  target_link_options(doodlebold-plugin-host PRIVATE -static)
+else()
+  target_link_libraries(doodlebold-plugin-host PRIVATE ${CMAKE_DL_LIBS})
+endif()
+add_dependencies(doodlebold doodlebold-plugin-host)
+install(TARGETS doodlebold-plugin-host RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR})
