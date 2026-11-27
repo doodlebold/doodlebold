@@ -65,6 +65,24 @@ TEST(LayerOps, MovingAFolderCountsTheFoldersInsideIt) {
     EXPECT_EQ(layer_ops::move(s, outer, innermost, 0).error(), EditError::InvalidMove) << "into itself is still another refusal";
 }
 
+// The layer panel's drag and drop moves through moveLayers: folders nested past ten levels make a file that won't open.
+TEST(LayerOps, MovingSeveralLayersCountsTheFoldersInsideThem) {
+    DocumentState s = makeState();
+    LayerId deep = kNoLayer;
+    for (int i = 0; i < 9; ++i)
+        deep = s.layers.insert(s.layers.makeFolder(QStringLiteral("f")), deep, -1);
+    const LayerId outer = s.layers.insert(s.layers.makeFolder(QStringLiteral("outer")), kNoLayer, -1);
+    const LayerId inner = s.layers.insert(s.layers.makeFolder(QStringLiteral("inner")), outer, -1);
+    const LayerId loose = s.layers.insert(s.layers.makeRaster(QStringLiteral("loose")), kNoLayer, -1);
+    const auto tooDeep = layer_ops::moveLayers(s, {outer, loose}, deep, 0);
+    ASSERT_FALSE(tooDeep.ok());
+    EXPECT_EQ(tooDeep.error(), EditError::FoldersTooDeep);
+    EXPECT_EQ(s.layers.parentOf(outer), &s.layers.root()) << "nothing moved";
+    EXPECT_EQ(s.layers.parentOf(loose), &s.layers.root());
+    EXPECT_EQ(s.layers.parentOf(inner)->props.id, outer);
+    EXPECT_TRUE(layer_ops::moveLayers(s, {inner, loose}, deep, 0).ok()) << "one folder still fits as the tenth level";
+}
+
 TEST(LayerOps, DuplicateSharesPixelsAndGetsFreshIds) {
     DocumentState s = makeState();
     const LayerId f = layer_ops::addFolder(s).value();

@@ -27,6 +27,13 @@ namespace {
 
 constexpr int kTitleButtonsWidth = DoodleboldStyle::kButtonGap + 3 * (DoodleboldStyle::kButtonSize + DoodleboldStyle::kButtonGap);
 
+// Some Qt versions emit windowStateChanged from ~QMdiSubWindow while its children are going, so nothing may hear it then. Only
+// that signal: a blanket disconnect() would also cut destroyed() from Qt's accessibility cache, which then keeps the dead window's
+// interface, and Qt 6.8's setWindowTitle hands it to a later window made at the same address and crashes reading its title.
+void silenceStateChanges(QMdiSubWindow* window) {
+    QObject::disconnect(window, &QMdiSubWindow::windowStateChanged, nullptr, nullptr);
+}
+
 // The title bar as it shows, inside the window's invisible margin, in the window's own coordinates.
 QRect visibleTitleBar(const QMdiSubWindow* window) {
     const int margin = DoodleboldStyle::kFrameMargin;
@@ -92,7 +99,7 @@ DocumentTabs::~DocumentTabs() {
     for (const Entry& e : m_entries) {
         if (Document* doc = e.view->document())
             doc->disconnect(this);
-        e.window->disconnect();
+        silenceStateChanges(e.window);
     }
 }
 
@@ -429,8 +436,7 @@ bool DocumentTabs::requestCloseTab(int index) {
         d->disconnect(this);
     window->removeEventFilter(this);
     view->removeEventFilter(this);
-    // Some Qt versions emit from ~QMdiSubWindow while its children are going.
-    window->disconnect();
+    silenceStateChanges(window);
     view->disconnect(this);
     m_area->removeSubWindow(window);
     delete window;

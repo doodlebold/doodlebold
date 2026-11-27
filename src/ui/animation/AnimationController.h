@@ -115,6 +115,7 @@ private:
     void syncSound();
     void startReading(Document* doc);
     void pollReading();
+    void dropVideo(Document* doc);
     void forget(Document* doc);
 
     TimelinePanel* m_panel;
@@ -133,6 +134,7 @@ private:
     std::set<Document*> m_known;  // documents whose end is watched
     std::map<Document*, std::unique_ptr<VideoFrames>> m_videos;
     std::unique_ptr<Reading> m_reading;
+    std::set<const VideoFrames*> m_unreadable;  // read and failed: not read again until the video or its canvas changes
     std::unique_ptr<VideoPictureLoader> m_loader;  // the current canvas's video pictures, read ahead on a thread
     int m_wantedPicture = -1;
     std::map<std::shared_ptr<const QByteArray>, std::shared_ptr<const SoundPeaks>> m_peaks;  // empty peaks: unreadable

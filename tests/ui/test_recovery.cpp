@@ -227,6 +227,33 @@ TEST_F(RecoveryTest, SavingClosingAndANormalEndDeleteTheCopies) {
     EXPECT_TRUE(RecoveryStore::leftovers(root.path()).empty());
 }
 
+// Options' folder is typed freely, so it can be one that can't be made (a typo, a drive that's gone). The run then went on
+// nowhere: its copies were deleted, and no copy was made for the rest of the session, without a word.
+TEST_F(RecoveryTest, AFolderThatCantBeMadeKeepsTheRunningCopies) {
+    openWindow();
+    Document* doc = newCanvas();
+    ASSERT_TRUE(doc->addLayer());
+    recovery()->saveCopies();
+    recovery()->waitForWrites();
+    ASSERT_EQ(copies().size(), 1u);
+    const QString run = recovery()->runFolder();
+
+    QFile file(root.filePath(QStringLiteral("a-file")));
+    ASSERT_TRUE(file.open(QIODevice::WriteOnly));
+    file.close();
+    AppOptions::Values v = window->options()->values();
+    v.recoveryFolder = root.filePath(QStringLiteral("a-file/recovery"));
+    window->options()->setValues(v);
+    recovery()->waitForWrites();
+    EXPECT_EQ(recovery()->runFolder(), run);
+    EXPECT_EQ(copies().size(), 1u);
+
+    ASSERT_TRUE(doc->addLayer());
+    recovery()->saveCopies();
+    recovery()->waitForWrites();
+    EXPECT_EQ(copies().size(), std::min<std::size_t>(2u, std::size_t(v.recoveryCopiesKept))) << "copies are still made";
+}
+
 TEST_F(RecoveryTest, TurningCopiesOffEndsTheRun) {
     openWindow();
     const QString run = recovery()->runFolder();
