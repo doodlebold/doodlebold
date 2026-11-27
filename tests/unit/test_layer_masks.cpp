@@ -190,6 +190,37 @@ TEST(LayerMasks, OnlyALinkedMaskMovesWithTheLayer) {
     EXPECT_EQ(doc->currentLayer()->mask->at(40, 10), SelectionMask::kOne);
 }
 
+// A linked mask goes with the painting, and away from it stays as it was: moved over the painting's box alone, it came out
+// hidden everywhere else, so anything painted there later didn't show.
+TEST(LayerMasks, MovingALayerLeavesItsMaskAwayFromThePaintingAsItWas) {
+    Document doc(QSize(120, 80), Qt::white);
+    const LayerId id = doc.currentLayerId();
+    doc.paintTarget(id).value()->fill(QRect(10, 10, 20, 20), Qt::black);
+    ASSERT_TRUE(doc.addLayerMask(id));
+    ASSERT_TRUE(doc.setSelection(selection::rectangle(doc.size(), QRectF(80, 0, 20, 80), false)));
+    ASSERT_TRUE(doc.clearLayer(id));  // a hidden band on the mask, away from the painting
+    ASSERT_TRUE(doc.deselect());
+    const auto expectTheMaskAsItWas = [&](const char* how) {
+        const SelectionMask& mask = *doc.currentLayer()->mask;
+        EXPECT_EQ(mask.at(5, 5), SelectionMask::kOne) << how << ": where the painting was";
+        EXPECT_EQ(mask.at(50, 60), SelectionMask::kOne) << how << ": away from it";
+        EXPECT_EQ(mask.at(90, 40), 0) << how << ": the hidden band";
+        EXPECT_EQ(mask.at(110, 40), SelectionMask::kOne) << how;
+    };
+    ASSERT_TRUE(doc.moveLayerExactly(id, transform::Turn::None, QPoint(30, 20)));
+    expectTheMaskAsItWas("moved");
+    EXPECT_EQ(doc.currentLayer()->mask->at(45, 35), SelectionMask::kOne) << "where the painting went";
+    ASSERT_TRUE(doc.undo());
+    ASSERT_TRUE(doc.moveLayerExactly(id, transform::Turn::Clockwise));
+    expectTheMaskAsItWas("turned");
+    ASSERT_TRUE(doc.undo());
+    ASSERT_TRUE(doc.transformLayer(id, transform::Quad::of(QRectF(40, 30, 30, 30)), transform::Interpolation::Bilinear));
+    expectTheMaskAsItWas("transformed");
+    ASSERT_TRUE(doc.undo());
+    ASSERT_TRUE(doc.moveLayersExactly({id}, QPoint(30, 20)));
+    expectTheMaskAsItWas("moved with others");
+}
+
 TEST(LayerMasks, FolderMasksAndTheLinkSurviveDoodleboldFiles) {
     auto doc = maskedDocument();
     LayerProps p = doc->currentLayer()->props;
