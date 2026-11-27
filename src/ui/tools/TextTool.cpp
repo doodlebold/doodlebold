@@ -279,7 +279,8 @@ void TextTool::onOptionsChanged() {
     const QColor colour = m_typing.colour;
     m_typing = styleFromTools();
     m_typing.colour = colour;
-    const TextContent* c = content();
+    // Only the current canvas's text takes the change: the panel's options are another canvas's while that one is in front.
+    const TextContent* c = host().isCurrentCanvas() ? content() : nullptr;
     if (!c)
         return;
     TextContent edited = *c;
@@ -300,7 +301,7 @@ void TextTool::onOptionsChanged() {
 
 void TextTool::onColourChanged() {
     m_typing.colour = host().toolBox()->color();
-    const TextContent* c = content();
+    const TextContent* c = host().isCurrentCanvas() ? content() : nullptr;
     const int from = std::min(m_caret, m_anchor), to = std::max(m_caret, m_anchor);
     if (!c || from == to)
         return;

@@ -19,10 +19,19 @@
 
 #include <algorithm>
 #include <chrono>
+#include <optional>
 
 namespace doodlebold {
 
 namespace {
+
+// A copy, not a reference: an edit replaces the document's state, and with it the clip list a reference would point into.
+std::optional<SoundClip> soundClip(const Animation& a, int id) {
+    for (const SoundClip& c : a.sounds)
+        if (c.id == id)
+            return c;
+    return std::nullopt;
+}
 
 // The clips that play and are exported: none of a hidden sound track, and no muted one.
 std::vector<SoundClip> heardSounds(const Animation& a) {
@@ -287,10 +296,10 @@ void AnimationController::setLoop(bool loop) {
 void AnimationController::setSoundStart(int id, double seconds) {
     if (!m_doc)
         return;
-    const Animation& a = m_doc->animation();
-    for (const SoundClip& c : a.sounds)
-        if (c.id == id)
-            report(m_doc->moveSound(id, static_cast<int>(std::lround(std::max(0.0, seconds) * a.fps)), c.track));
+    const std::optional<SoundClip> c = soundClip(m_doc->animation(), id);
+    if (!c)
+        return;
+    report(m_doc->moveSound(id, static_cast<int>(std::lround(std::max(0.0, seconds) * m_doc->animation().fps)), c->track));
 }
 
 // End At: the clip stops at `seconds` from the first frame (trimming its end, or giving back what was trimmed); at least a
@@ -298,18 +307,18 @@ void AnimationController::setSoundStart(int id, double seconds) {
 void AnimationController::setSoundEnd(int id, double seconds) {
     if (!m_doc)
         return;
-    const Animation& a = m_doc->animation();
-    for (const SoundClip& c : a.sounds) {
-        if (c.id != id)
-            continue;
-        const double played = seconds - c.startSeconds(a.fps);
-        if (played * a.fps < 1.0 - 1e-6) {
-            emit refused(tr("A sound ends at least a beat after it starts (%1 s).").arg(c.startSeconds(a.fps) + 1.0 / a.fps, 0, 'f', 2));
-            return;
-        }
-        const double trimEnd = std::max(0.0, c.seconds - c.trimStart - played);
-        report(m_doc->trimSound(id, c.startBeat, c.trimStart, trimEnd));
+    const std::optional<SoundClip> found = soundClip(m_doc->animation(), id);
+    if (!found)
+        return;
+    const SoundClip& c = *found;
+    const double fps = m_doc->animation().fps;
+    const double played = seconds - c.startSeconds(fps);
+    if (played * fps < 1.0 - 1e-6) {
+        emit refused(tr("A sound ends at least a beat after it starts (%1 s).").arg(c.startSeconds(fps) + 1.0 / fps, 0, 'f', 2));
+        return;
     }
+    const double trimEnd = std::max(0.0, c.seconds - c.trimStart - played);
+    report(m_doc->trimSound(id, c.startBeat, c.trimStart, trimEnd));
 }
 
 bool AnimationController::keepOnlyThisFrame() {
@@ -521,22 +530,16 @@ void AnimationController::syncVideo() {
     const auto& video = doc->animation().video;
     auto it = m_videos.find(doc);
     if (!video) {
-        if (it != m_videos.end())
-            m_videos.erase(it);
+        dropVideo(doc);
         doc->setVideoPicture({});
         m_panel->setVideoStatus({});
         return;
     }
     if (it == m_videos.end() || !sameCache(*it->second, *video, doc->size())) {
-        if (m_reading && m_reading->doc == doc) {
-            m_reading->cancel = true;
-            m_reading->worker.join();
-            m_reading.reset();
-            m_readTimer.stop();
-        }
+        dropVideo(doc);
         m_videos[doc] = std::make_unique<VideoFrames>(*video, doc->size(), VideoFrames::defaultCacheRoot());
     }
-    if (!m_videos[doc]->isCached() && !m_reading)
+    if (!m_videos[doc]->isCached() && !m_reading && !m_unreadable.contains(m_videos[doc].get()))
         startReading(doc);
     if (!isPlaying())
         showBeat(doc->beat());
@@ -585,12 +588,30 @@ void AnimationController::pollReading() {
     m_readTimer.stop();
     const QPointer<Document> doc = r.doc;
     const QString error = r.ok ? QString() : r.error;
+    // Not read again at once: syncVideo would start the same failing read over and over, and its status would hide the error.
+    if (!r.ok)
+        m_unreadable.insert(r.frames);
     m_reading.reset();
-    if (doc == m_doc) {
+    if (doc == m_doc)
         m_panel->setVideoStatus(error.isEmpty() ? QString() : tr("The video could not be read: %1").arg(error));
-        syncVideo();
+    syncVideo();  // the current canvas's video, which may have waited for another canvas's to be read
+    if (doc == m_doc)
         m_panel->strip()->setVideoPictures([this](int index) { return laneVideoPicture(index); });
+}
+
+// A reading into the document's pictures is stopped before they go: its thread writes into them.
+void AnimationController::dropVideo(Document* doc) {
+    const auto it = m_videos.find(doc);
+    if (it == m_videos.end())
+        return;
+    if (m_reading && m_reading->frames == it->second.get()) {
+        m_reading->cancel = true;
+        m_reading->worker.join();
+        m_reading.reset();
+        m_readTimer.stop();
     }
+    m_unreadable.erase(it->second.get());
+    m_videos.erase(it);
 }
 
 void AnimationController::waitForVideo() {
@@ -607,13 +628,7 @@ void AnimationController::waitForVideo() {
 }
 
 void AnimationController::forget(Document* doc) {
-    if (m_reading && m_reading->frames == (m_videos.contains(doc) ? m_videos[doc].get() : nullptr)) {
-        m_reading->cancel = true;
-        m_reading->worker.join();
-        m_reading.reset();
-        m_readTimer.stop();
-    }
-    m_videos.erase(doc);
+    dropVideo(doc);
     m_known.erase(doc);
 }
 
