@@ -41,7 +41,7 @@ add_library(doodlebold_core STATIC
   core/effects/EffectSettings.cpp core/effects/EffectSettings.h
   core/io/DoodleFormat.cpp core/io/DoodleFormat.h
   core/io/ByteIO.h
-  core/io/DocumentFormat.h
+  core/io/DocumentFormat.h core/io/FileLimits.cpp core/io/FileLimits.h
   core/io/FileError.cpp core/io/FileError.h
   core/io/FileIo.cpp core/io/FileIo.h
   core/io/ImageConvert.cpp core/io/ImageConvert.h

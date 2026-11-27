@@ -53,6 +53,7 @@ add_executable(doodlebold_unit_tests
   unit/test_transform_session.cpp
   unit/test_transform_gpu_preview.cpp
   unit/test_doodle_format.cpp
+  unit/test_file_limits.cpp
   unit/test_animation.cpp
   unit/test_animation_video.cpp
   unit/test_image_formats.cpp

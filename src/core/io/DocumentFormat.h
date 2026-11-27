@@ -2,6 +2,7 @@
 
 #include "core/document/DocumentContent.h"
 #include "core/io/FileError.h"
+#include "core/io/FileLimits.h"
 
 #include <QIODevice>
 #include <QSize>
@@ -12,10 +13,6 @@
 #include <cmath>
 
 namespace doodlebold {
-
-// The largest canvas side Doodlebold opens or creates, the baseline. A canvas also costs a full-size display
-// image (4 bytes per pixel).
-inline constexpr int kMaxCanvasSide = 16384;
 
 inline bool beyondCanvasLimit(QSize size) {
     return size.width() > kMaxCanvasSide || size.height() > kMaxCanvasSide;
