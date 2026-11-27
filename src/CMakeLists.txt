@@ -171,7 +171,7 @@ add_library(doodlebold_ui STATIC
   ui/NewCanvasDialog.cpp ui/NewCanvasDialog.h
   ui/MemoryNotice.cpp ui/MemoryNotice.h
   ui/UpdateNotice.cpp ui/UpdateNotice.h
-  ui/OptionsDialog.cpp ui/OptionsDialog.h
+  ui/OptionsDialog.cpp ui/OptionsDialog.h ui/PluginQuestions.cpp ui/PluginQuestions.h
   ui/ResourcesPage.cpp ui/ResourcesPage.h
   ui/PackImportDialog.cpp ui/PackImportDialog.h
   ui/StrokeTimingReadout.cpp ui/StrokeTimingReadout.h

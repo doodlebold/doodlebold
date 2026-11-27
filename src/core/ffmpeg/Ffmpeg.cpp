@@ -17,6 +17,8 @@ QString describe(FfmpegError error) {
     case FfmpegError::NotRunnable: return QCoreApplication::translate("Ffmpeg", "The FFmpeg program that was found does not run.");
     case FfmpegError::NoProbe:
         return QCoreApplication::translate("Ffmpeg", "FFmpeg was found, but its companion program ffprobe is missing.");
+    case FfmpegError::NotApproved:
+        return QCoreApplication::translate("Ffmpeg", "FFmpeg was found on this computer's PATH, and Doodlebold may not run it yet.");
     }
     return {};
 }
@@ -71,7 +73,7 @@ QStringList FfmpegLocator::parseEncoders(const QByteArray& encodersOutput) {
     return names;
 }
 
-Result<FfmpegTools, FfmpegError> FfmpegLocator::check(const QString& ffmpegPath) {
+Result<FfmpegTools, FfmpegError> FfmpegLocator::check(const QString& ffmpegPath, bool probeOnPath) {
     using R = Result<FfmpegTools, FfmpegError>;
     const ProcessOutput version = runProcess(ffmpegPath, {QStringLiteral("-hide_banner"), QStringLiteral("-version")}, kTimeoutMs);
     FfmpegTools tools;
@@ -84,7 +86,7 @@ Result<FfmpegTools, FfmpegError> FfmpegLocator::check(const QString& ffmpegPath)
 
     const QString probeName = executableName(QStringLiteral("ffprobe"));
     QString probe = QDir(QFileInfo(ffmpegPath).absolutePath()).filePath(probeName);
-    if (!QFileInfo(probe).isFile())
+    if (!QFileInfo(probe).isFile() && probeOnPath)
         probe = QStandardPaths::findExecutable(QStringLiteral("ffprobe"));
     if (probe.isEmpty() || !runProcess(probe, {QStringLiteral("-version")}, kTimeoutMs).succeeded())
         return R::failure(FfmpegError::NoProbe);
@@ -92,7 +94,11 @@ Result<FfmpegTools, FfmpegError> FfmpegLocator::check(const QString& ffmpegPath)
     return tools;
 }
 
-Result<FfmpegTools, FfmpegError> FfmpegLocator::locate(const QString& configured, const QString& toolsFolder) {
+QString FfmpegLocator::onPath() {
+    return QStandardPaths::findExecutable(QStringLiteral("ffmpeg"));
+}
+
+Result<FfmpegTools, FfmpegError> FfmpegLocator::locate(const QString& configured, const QString& toolsFolder, const QString& approvedOnPath) {
     const QString name = executableName(QStringLiteral("ffmpeg"));
     for (const QString& place : {configured, toolsFolder}) {
         if (place.isEmpty())
@@ -100,8 +106,11 @@ Result<FfmpegTools, FfmpegError> FfmpegLocator::locate(const QString& configured
         if (const QString program = programIn(place, name); !program.isEmpty())
             return check(program);
     }
-    if (const QString onPath = QStandardPaths::findExecutable(QStringLiteral("ffmpeg")); !onPath.isEmpty())
-        return check(onPath);
+    if (const QString found = onPath(); !found.isEmpty()) {
+        if (approvedOnPath.isEmpty() || QFileInfo(found).canonicalFilePath() != QFileInfo(approvedOnPath).canonicalFilePath())
+            return Result<FfmpegTools, FfmpegError>::failure(FfmpegError::NotApproved);
+        return check(found, true);
+    }
     return Result<FfmpegTools, FfmpegError>::failure(FfmpegError::NotFound);
 }
 

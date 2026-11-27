@@ -18,6 +18,11 @@ using namespace doodlebold::testing;
 
 namespace {
 
+// These tests are about loading, so every plugin they meet was said yes to.
+io::PluginChoice allowAll(const QString&) {
+    return io::PluginChoice::Allowed;
+}
+
 QString exampleFolder() {
     return QStringLiteral(DOODLEBOLD_EXAMPLE_PLUGIN_DIR);
 }
@@ -133,7 +138,7 @@ TiledImage flattenedOverTransparency(const DocumentContent& c) {
 
 TEST(PluginLoader, TheExamplePluginJoinsOpenAndSave) {
     auto registry = builtInRegistry();
-    const auto report = io::loadFormatPlugins(*registry, {exampleFolder()});
+    const auto report = io::loadFormatPlugins(*registry, {exampleFolder()}, allowAll);
     EXPECT_EQ(report.loaded, QStringList{QStringLiteral("Farbfeld")});
     EXPECT_TRUE(report.notes.isEmpty()) << qPrintable(report.notes.join(QLatin1Char('\n')));
     for (const bool writing : {false, true}) {
@@ -148,7 +153,7 @@ TEST(PluginLoader, TheExamplePluginJoinsOpenAndSave) {
 
 TEST(PluginLoader, AFarbfeldRoundTripKeepsTheCanvasAt16Bits) {
     auto registry = builtInRegistry();
-    io::loadFormatPlugins(*registry, {exampleFolder()});
+    io::loadFormatPlugins(*registry, {exampleFolder()}, allowAll);
     DocumentContent content = layeredContent();
     content.state.background.mode = BackgroundMode::TransparencyWhite;
     QTemporaryDir dir;
@@ -167,7 +172,7 @@ TEST(PluginLoader, AFarbfeldRoundTripKeepsTheCanvasAt16Bits) {
 
 TEST(PluginLoader, AnOpaqueCanvasIsSavedOverItsBackground) {
     auto registry = builtInRegistry();
-    io::loadFormatPlugins(*registry, {exampleFolder()});
+    io::loadFormatPlugins(*registry, {exampleFolder()}, allowAll);
     const DocumentContent content = layeredContent();
     QTemporaryDir dir;
     const LoadedDocument loaded = roundTrip(*registry, content, dir.filePath(QStringLiteral("picture.ff")));
@@ -178,7 +183,7 @@ TEST(PluginLoader, AnOpaqueCanvasIsSavedOverItsBackground) {
 
 TEST(PluginLoader, APluginFileIsRecognisedByItsContent) {
     auto registry = builtInRegistry();
-    io::loadFormatPlugins(*registry, {exampleFolder()});
+    io::loadFormatPlugins(*registry, {exampleFolder()}, allowAll);
     QTemporaryDir dir;
     const QString path = dir.filePath(QStringLiteral("picture.ff"));
     roundTrip(*registry, layeredContent(), path);
@@ -191,7 +196,7 @@ TEST(PluginLoader, APluginFileIsRecognisedByItsContent) {
 
 TEST(PluginLoader, EveryLayerFieldSurvivesARoundTripThroughThePlugin) {
     auto registry = builtInRegistry();
-    const auto report = io::loadFormatPlugins(*registry, {testPluginFolder("layer_dump")});
+    const auto report = io::loadFormatPlugins(*registry, {testPluginFolder("layer_dump")}, allowAll);
     ASSERT_EQ(report.loaded, QStringList{QStringLiteral("Layer dump")});
     const DocumentContent content = layeredContent();
     QTemporaryDir dir;
@@ -211,7 +216,7 @@ TEST(PluginLoader, EveryLayerFieldSurvivesARoundTripThroughThePlugin) {
 
 TEST(PluginLoader, AnUnknownBlendModeOpensAsNormalWithANote) {
     auto registry = builtInRegistry();
-    io::loadFormatPlugins(*registry, {testPluginFolder("layer_dump")});
+    io::loadFormatPlugins(*registry, {testPluginFolder("layer_dump")}, allowAll);
     QTemporaryDir dir;
     const QString path = dir.filePath(QStringLiteral("layers.layerdump"));
     roundTrip(*registry, layeredContent(), path);
@@ -227,7 +232,7 @@ TEST(PluginLoader, AnUnknownBlendModeOpensAsNormalWithANote) {
 
 TEST(PluginLoader, ADamagedFileIsAnErrorNotACrash) {
     auto registry = builtInRegistry();
-    io::loadFormatPlugins(*registry, {testPluginFolder("layer_dump"), exampleFolder()});
+    io::loadFormatPlugins(*registry, {testPluginFolder("layer_dump"), exampleFolder()}, allowAll);
     QTemporaryDir dir;
     for (const QString& name : {QStringLiteral("layers.layerdump"), QStringLiteral("picture.ff")}) {
         const QString path = dir.filePath(name);
@@ -246,16 +251,16 @@ TEST(PluginLoader, BrokenAndIncompatiblePluginsAreSkippedWithANote) {
         SCOPED_TRACE(name);
         auto registry = builtInRegistry();
         const auto before = summaries(*registry);
-        const auto report = io::loadFormatPlugins(*registry, {testPluginFolder(name)});
+        const auto report = io::loadFormatPlugins(*registry, {testPluginFolder(name)}, allowAll);
         EXPECT_TRUE(report.loaded.isEmpty());
         EXPECT_FALSE(report.notes.isEmpty());
         EXPECT_EQ(summaries(*registry), before);
     }
     auto registry = builtInRegistry();
-    const auto future = io::loadFormatPlugins(*registry, {testPluginFolder("future_version")});
+    const auto future = io::loadFormatPlugins(*registry, {testPluginFolder("future_version")}, allowAll);
     ASSERT_EQ(future.notes.size(), 1);
     EXPECT_TRUE(future.notes[0].contains(QStringLiteral("built for plugin interface version 2"))) << qPrintable(future.notes[0]);
-    const auto broken = io::loadFormatPlugins(*registry, {testPluginFolder("broken_formats")});
+    const auto broken = io::loadFormatPlugins(*registry, {testPluginFolder("broken_formats")}, allowAll);
     EXPECT_EQ(broken.notes.size(), 2) << qPrintable(broken.notes.join(QLatin1Char('\n')));
 }
 
@@ -272,7 +277,7 @@ TEST(PluginLoader, AFileThatIsNotAPluginIsSkippedWithANote) {
     writeAll(dir.filePath(QStringLiteral("readme.txt")), "not looked at");
     auto registry = builtInRegistry();
     const auto before = summaries(*registry);
-    const auto report = io::loadFormatPlugins(*registry, {dir.path(), dir.filePath(QStringLiteral("missing")), exampleFolder()});
+    const auto report = io::loadFormatPlugins(*registry, {dir.path(), dir.filePath(QStringLiteral("missing")), exampleFolder()}, allowAll);
     ASSERT_EQ(report.notes.size(), 1) << qPrintable(report.notes.join(QLatin1Char('\n')));
     EXPECT_TRUE(report.notes[0].contains(name));
     EXPECT_EQ(report.loaded, QStringList{QStringLiteral("Farbfeld")}) << "the plugins after it still load";
@@ -283,7 +288,7 @@ TEST(PluginLoader, BuiltInFormatsAreUnchangedAndKeepTheirExtensions) {
     auto registry = builtInRegistry();
     const auto before = summaries(*registry);
     const QString png = registry->forPath(QStringLiteral("a.png"), false)->id();
-    const auto report = io::loadFormatPlugins(*registry, {testPluginFolder("claims"), exampleFolder()});
+    const auto report = io::loadFormatPlugins(*registry, {testPluginFolder("claims"), exampleFolder()}, allowAll);
     EXPECT_EQ(report.loaded, (QStringList{QStringLiteral("Bad"), QStringLiteral("Farbfeld")}));
     ASSERT_EQ(report.notes.size(), 1) << qPrintable(report.notes.join(QLatin1Char('\n')));
     EXPECT_TRUE(report.notes[0].contains(QStringLiteral(".png files stay with"))) << qPrintable(report.notes[0]);
@@ -297,11 +302,63 @@ TEST(PluginLoader, BuiltInFormatsAreUnchangedAndKeepTheirExtensions) {
 
 TEST(PluginLoader, ThePluginInTwoFoldersLoadsOnce) {
     auto registry = builtInRegistry();
-    const auto report = io::loadFormatPlugins(*registry, {exampleFolder(), exampleFolder()});
+    const auto report = io::loadFormatPlugins(*registry, {exampleFolder(), exampleFolder()}, allowAll);
     EXPECT_EQ(report.loaded, QStringList{QStringLiteral("Farbfeld")});
     ASSERT_EQ(report.notes.size(), 1);
     EXPECT_TRUE(report.notes[0].contains(QStringLiteral("already loaded"))) << qPrintable(report.notes[0]);
     QTemporaryDir dir;
     EXPECT_EQ(roundTrip(*registry, layeredContent(), dir.filePath(QStringLiteral("picture.ff"))).content.size(), QSize(150, 100))
         << "the first copy still works";
+}
+
+// A plugin runs inside Doodlebold with the user's rights: none is loaded before they say yes to it, by its contents.
+TEST(PluginLoader, OnlyAllowedPluginsAreLoaded) {
+    const QString farbfeld = QDir(exampleFolder()).entryInfoList(QDir::Files).value(0).absoluteFilePath();
+    const QString hash = io::pluginHash(farbfeld);
+    ASSERT_EQ(hash.size(), 64) << "SHA-256, in hex";
+    for (const io::PluginChoice choice : {io::PluginChoice::Unasked, io::PluginChoice::Refused}) {
+        auto registry = builtInRegistry();
+        const auto before = summaries(*registry);
+        const auto report = io::loadFormatPlugins(*registry, {exampleFolder()}, [&](const QString&) { return choice; });
+        EXPECT_TRUE(report.loaded.isEmpty());
+        EXPECT_EQ(summaries(*registry), before) << "no format added";
+        ASSERT_EQ(report.found.size(), 1u);
+        EXPECT_EQ(report.found[0].hash, hash);
+        EXPECT_EQ(report.found[0].choice, choice);
+    }
+    auto registry = builtInRegistry();
+    const auto allowed = io::loadFormatPlugins(*registry, {exampleFolder()}, [&](const QString& h) {
+        return h == hash ? io::PluginChoice::Allowed : io::PluginChoice::Unasked;
+    });
+    EXPECT_EQ(allowed.loaded, QStringList{QStringLiteral("Farbfeld")});
+}
+
+TEST(PluginLoader, AChangedFileIsAskedAboutAgain) {
+    QTemporaryDir dir;
+    const QString farbfeld = QDir(exampleFolder()).entryInfoList(QDir::Files).value(0).absoluteFilePath();
+    const QString copy = dir.filePath(QFileInfo(farbfeld).fileName());
+    ASSERT_TRUE(QFile::copy(farbfeld, copy));
+    const QString was = io::pluginHash(copy);
+    QFile file(copy);
+    ASSERT_TRUE(file.open(QIODevice::Append));
+    file.write("changed");
+    file.close();
+    EXPECT_NE(io::pluginHash(copy), was) << "a yes was for the file as it was";
+}
+
+// A crash in a plugin last time: it is kept from loading this time, till the user says whether to keep it off.
+TEST(PluginLoader, APluginTheLastCrashWasInIsHeldBack) {
+    const QString farbfeld = QDir(exampleFolder()).entryInfoList(QDir::Files).value(0).absoluteFilePath();
+    const QString name = QFileInfo(farbfeld).fileName();
+    const QString windowsReport = QStringLiteral("Crash: access violation 0xC0000005\nAt: %1+0x1A2B\nStack:\n  #0 %1+0x1A2B\n").arg(name);
+    const QString linuxReport = QStringLiteral("Stack:\n/opt/doodlebold/plugins/%1(+0x1a2b)[0x7f00]\n").arg(name);
+    EXPECT_EQ(io::pluginsNamedIn(windowsReport, {farbfeld}), QStringList{farbfeld});
+    EXPECT_EQ(io::pluginsNamedIn(linuxReport, {farbfeld}), QStringList{farbfeld});
+    EXPECT_TRUE(io::pluginsNamedIn(QStringLiteral("At: doodlebold.exe+0x10\n"), {farbfeld}).isEmpty());
+
+    auto registry = builtInRegistry();
+    const auto report = io::loadFormatPlugins(*registry, {exampleFolder()}, allowAll, {farbfeld});
+    EXPECT_TRUE(report.loaded.isEmpty());
+    ASSERT_EQ(report.found.size(), 1u);
+    EXPECT_TRUE(report.found[0].heldBack);
 }

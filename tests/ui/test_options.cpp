@@ -184,6 +184,26 @@ TEST_F(OptionsTest, TheTimelapsePageHoldsOnlyRecordNewCanvases) {
     EXPECT_TRUE(test::saveScreenshot(dlg.grab(), QStringLiteral("options_timelapse")));
 }
 
+// Each plugin found at start has a switch, which keeps the user's say at once, by the file's contents, for the next start.
+TEST_F(OptionsTest, ThePluginsPageSwitchesEachPluginFoundForTheNextStart) {
+    const io::FoundPlugin allowed{QStringLiteral("/plugins/libone.so"), QStringLiteral("aa11"), io::PluginChoice::Allowed};
+    const io::FoundPlugin unasked{QStringLiteral("/plugins/libtwo.so"), QStringLiteral("bb22"), io::PluginChoice::Unasked};
+    OptionsDialog dlg(AppOptions::Values{});
+    dlg.addPluginsPage({allowed, unasked});
+    auto* pages = find<QListWidget>(&dlg, "optionsPages");
+    ASSERT_TRUE(pages);
+    EXPECT_EQ(pages->item(pages->count() - 1)->text(), QStringLiteral("Plugins")) << "the last page";
+    const QList<QCheckBox*> switches = dlg.findChildren<QCheckBox*>(QStringLiteral("pluginCheck"));
+    ASSERT_EQ(switches.size(), 2);
+    EXPECT_EQ(switches[0]->text(), QStringLiteral("libone.so"));
+    EXPECT_TRUE(switches[0]->isChecked());
+    EXPECT_FALSE(switches[1]->isChecked());
+    switches[0]->setChecked(false);
+    switches[1]->setChecked(true);
+    EXPECT_EQ(io::savedPluginChoice(QStringLiteral("aa11")), io::PluginChoice::Refused);
+    EXPECT_EQ(io::savedPluginChoice(QStringLiteral("bb22")), io::PluginChoice::Allowed);
+}
+
 TEST_F(OptionsTest, OnlyRecordNewCanvasesIsSavedOfTheTimelapseOptions) {
     AppOptions::Values v;
     v.recordNewCanvases = true;

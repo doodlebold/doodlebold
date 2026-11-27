@@ -1,11 +1,16 @@
 #include "core/io/PluginLoader.h"
 
 #include "core/io/PluginFormat.h"
+#include "core/util/AppIdentity.h"
 
 #include <QCoreApplication>
+#include <QCryptographicHash>
 #include <QDir>
+#include <QFile>
 #include <QLibrary>
 #include <QRegularExpression>
+#include <QSet>
+#include <QSettings>
 #include <QStandardPaths>
 
 #include <memory>
@@ -13,6 +18,11 @@
 namespace doodlebold::io {
 
 namespace {
+
+// Where the user's say about each plugin is kept, under its hash.
+const QString kChoicesGroup = QStringLiteral("plugins/");
+const QString kAllowed = QStringLiteral("allowed");
+const QString kRefused = QStringLiteral("refused");
 
 // The interface versions this program loads: plugins built for any other are skipped.
 constexpr std::uint32_t kOldestApiVersion = 1;
@@ -128,15 +138,74 @@ QStringList pluginFolders() {
     return out;
 }
 
-PluginLoadReport loadFormatPlugins(FormatRegistry& registry, const QStringList& folders) {
-    PluginLoadReport report;
-    for (const QString& folder : folders) {
-        const QDir dir(folder);
-        for (const QFileInfo& file : dir.entryInfoList(QDir::Files, QDir::Name))
+QString pluginHash(const QString& path) {
+    QFile file(path);
+    if (!file.open(QIODevice::ReadOnly))
+        return {};
+    QCryptographicHash hash(QCryptographicHash::Sha256);
+    if (!hash.addData(&file))
+        return {};
+    return QString::fromLatin1(hash.result().toHex());
+}
+
+PluginChoice savedPluginChoice(const QString& hash) {
+    const QString choice = app_identity::settings().value(kChoicesGroup + hash + QStringLiteral("/choice")).toString();
+    return choice == kAllowed ? PluginChoice::Allowed : choice == kRefused ? PluginChoice::Refused : PluginChoice::Unasked;
+}
+
+void savePluginChoice(const QString& hash, const QString& path, PluginChoice choice) {
+    QSettings s = app_identity::settings();
+    if (choice == PluginChoice::Unasked) {
+        s.remove(kChoicesGroup + hash);
+        return;
+    }
+    s.setValue(kChoicesGroup + hash + QStringLiteral("/choice"), choice == PluginChoice::Allowed ? kAllowed : kRefused);
+    s.setValue(kChoicesGroup + hash + QStringLiteral("/path"), path);  // shown in Options; the hash decides
+}
+
+QStringList pluginsNamedIn(const QString& crashReport, const QStringList& paths) {
+    // A frame is "name.dll+0x…" on Windows, and "/path/libname.so(+0x…)" (glibc's backtrace) elsewhere.
+    static const QRegularExpression frame(QStringLiteral(R"((?:^|[\s/\\])([^\s/\\()+]+)(?:\+0x|\(\+0x|\())"),
+                                          QRegularExpression::MultilineOption);
+    QSet<QString> modules;
+    for (auto it = frame.globalMatch(crashReport); it.hasNext();)
+        modules.insert(it.next().captured(1).toLower());
+    QStringList named;
+    for (const QString& path : paths)
+        if (modules.contains(QFileInfo(path).fileName().toLower()))
+            named << path;
+    return named;
+}
+
+QStringList pluginFiles(const QStringList& folders) {
+    QStringList files;
+    for (const QString& folder : folders)
+        for (const QFileInfo& file : QDir(folder).entryInfoList(QDir::Files, QDir::Name))
             if (QLibrary::isLibrary(file.fileName()))
-                loadPlugin(file.absoluteFilePath(), registry, report);
+                files << file.absoluteFilePath();
+    return files;
+}
+
+PluginLoadReport loadFormatPlugins(FormatRegistry& registry, const QStringList& folders, const PluginChoiceOf& choiceOf,
+                                   const QStringList& heldBack) {
+    PluginLoadReport report;
+    for (const QString& path : pluginFiles(folders)) {
+        FoundPlugin found{path, pluginHash(path)};
+        if (found.hash.isEmpty()) {
+            report.notes << tr("\"%1\" was skipped: it can't be read.").arg(fileOf(found.path));
+            continue;
+        }
+        found.choice = choiceOf(found.hash);
+        found.heldBack = found.choice == PluginChoice::Allowed && heldBack.contains(found.path);
+        if (found.choice == PluginChoice::Allowed && !found.heldBack)
+            loadPlugin(found.path, registry, report);
+        report.found.push_back(std::move(found));
     }
     return report;
+}
+
+void loadAllowedPlugin(const QString& path, FormatRegistry& registry, PluginLoadReport& report) {
+    loadPlugin(path, registry, report);
 }
 
 }
