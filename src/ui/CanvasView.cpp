@@ -258,6 +258,9 @@ CanvasView::~CanvasView() {
         m_stroke.finish();
         m_shapeTool.reset();
     }
+    // A stroke still held (closed with the pen down, or its pen-up lost) is let go here: the stroke's own destructor would put its
+    // pixels back after the members it reports to (onImageChanged) are gone.
+    m_stroke.cancel();
     m_session.reset();
     releaseGL();
     // ~QOpenGLWidget deletes the context after this; its aboutToBeDestroyed must not reach releaseGL on a gone CanvasView.

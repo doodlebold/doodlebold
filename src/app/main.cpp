@@ -13,6 +13,8 @@
 #include <QOpenGLContext>
 #include <QTimer>
 
+#include <memory>
+
 namespace {
 
 // Starts without any plugin, as holding Shift does: past one that keeps Doodlebold from starting.
@@ -71,17 +73,19 @@ int main(int argc, char* argv[]) {
                                                     doodlebold::io::savedPluginChoice,
                                                     doodlebold::io::pluginsNamedIn(crashed, doodlebold::io::pluginFiles()));
 
-    doodlebold::MainWindow window;
-    window.show();
+    auto window = std::make_unique<doodlebold::MainWindow>();
+    window->show();
     if (!plugins.notes.isEmpty())
-        QTimer::singleShot(0, &window, [&window, notes = plugins.notes] {
-            QMessageBox::information(&window, QCoreApplication::translate("main", "Plugins"), notes.join(QStringLiteral("\n\n")));
+        QTimer::singleShot(0, window.get(), [w = window.get(), notes = plugins.notes] {
+            QMessageBox::information(w, QCoreApplication::translate("main", "Plugins"), notes.join(QStringLiteral("\n\n")));
         });
-    window.setPlugins(std::move(plugins), withoutPlugins);
-    QTimer::singleShot(0, &window, [&window, crashed] { window.showStartDialogs(crashed); });
-    window.openFiles(arguments);
-    window.checkForUpdatesAtStart();
+    window->setPlugins(std::move(plugins), withoutPlugins);
+    QTimer::singleShot(0, window.get(), [w = window.get(), crashed] { w->showStartDialogs(crashed); });
+    window->openFiles(arguments);
+    window->checkForUpdatesAtStart();
     const int status = QApplication::exec();
+    // Gone before the crash report is let go, so a crash as the window and its canvases are torn down is reported too.
+    window.reset();
     doodlebold::crash_report::uninstall();
     return status;
 }

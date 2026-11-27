@@ -16,10 +16,12 @@ void MoveTool::press(const ToolPointer& p) {
     m_dragging = true;
 }
 
+// The session can go under a drag: copy, cut, paste and the layer turns commit it before they run. The drag then just ends.
 void MoveTool::move(const ToolPointer& p) {
-    if (!m_dragging)
+    TransformSession* s = host().session();
+    if (!m_dragging || !s)
         return;
-    host().session()->dragTo(p.doc, p.modifiers);
+    s->dragTo(p.doc, p.modifiers);
     host().toolChanged();
 }
 
@@ -27,8 +29,10 @@ void MoveTool::release(const ToolPointer&) {
     if (!m_dragging)
         return;
     m_dragging = false;
-    host().session()->endDrag();
-    host().finishSession(true);
+    if (TransformSession* s = host().session()) {
+        s->endDrag();
+        host().finishSession(true);
+    }
 }
 
 bool MoveTool::keyPress(QKeyEvent* e) {
@@ -43,7 +47,8 @@ void MoveTool::cancel() {
     if (!m_dragging)
         return;
     m_dragging = false;
-    host().session()->endDrag();
+    if (TransformSession* s = host().session())
+        s->endDrag();
     host().finishSession(false);
 }
 
