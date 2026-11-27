@@ -1,3 +1,4 @@
+#include "CrashStack.h"
 #include "core/document/Document.h"
 #include "core/input/TabletStats.h"
 #include "ui/CanvasView.h"
@@ -5,6 +6,7 @@
 #include "ui/DoodleboldStyle.h"
 #include "ui/ViewSelector.h"
 
+#include <QAccessible>
 #include <QApplication>
 #include <QMouseEvent>
 #include <QSettings>
@@ -148,6 +150,26 @@ TEST(DocumentTabs, WindowCloseButtonAsksForAModifiedCanvas) {
     tabs.windowAt(0)->close();
     QCoreApplication::sendPostedEvents();
     EXPECT_EQ(tabs.count(), 0);
+}
+
+// Qt's accessibility cache forgets a window when the window's destroyed() reaches it. If it never does, a later window made at the
+// same address is handed the dead one's interface, and Qt 6.8's setWindowTitle crashes reading its title.
+TEST(DocumentTabs, AClosedWindowLeavesNoAccessibleInterfaceBehind) {
+    TestTabs tabs(nullptr);
+    tabs.addDocument(newDoc());
+    const QAccessible::Id id = QAccessible::uniqueId(QAccessible::queryAccessibleInterface(tabs.windowAt(0)));
+    ASSERT_TRUE(tabs.requestCloseTab(0));
+    EXPECT_EQ(QAccessible::accessibleInterface(id), nullptr);
+}
+
+TEST(DocumentTabs, TabsGoingAwayLeaveNoAccessibleInterfaceBehind) {
+    QAccessible::Id id = 0;
+    {
+        TestTabs tabs(nullptr);
+        tabs.addDocument(newDoc());
+        id = QAccessible::uniqueId(QAccessible::queryAccessibleInterface(tabs.windowAt(0)));
+    }
+    EXPECT_EQ(QAccessible::accessibleInterface(id), nullptr);
 }
 
 TEST(DocumentTabs, CloseModifiedTabAsksAndHonoursAnswer) {
@@ -337,6 +359,7 @@ TEST(DocumentTabs, DocumentsKeepIndependentUndoAndView) {
 }
 
 int main(int argc, char** argv) {
+    printCrashStacks();
     if (!qEnvironmentVariableIsSet("QT_QPA_PLATFORM"))
         qputenv("QT_QPA_PLATFORM", "offscreen");
     QApplication app(argc, argv);

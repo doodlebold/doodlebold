@@ -97,9 +97,9 @@ gtest_discover_tests(doodlebold_unit_tests DISCOVERY_MODE PRE_TEST DISCOVERY_TIM
 add_executable(doodlebold_ui_tests ui/test_document_tabs.cpp ui/test_color_panel.cpp ui/test_text_layers.cpp ui/test_platform.cpp ui/test_theme.cpp ui/test_value_bar.cpp ui/test_glass_popups.cpp ui/test_dialog_glass.cpp ui/test_brush_resource_rows.cpp ui/test_timelapse_ui.cpp ui/test_timeline_ui.cpp ui/test_layer_panel.cpp
                                ui/test_canvas_background_stroke.cpp ui/test_navigator_panel.cpp ui/test_tool_panel.cpp ui/test_selection_tools.cpp ui/test_selection_menus.cpp ui/test_file_ui.cpp ui/test_menus.cpp ui/test_options.cpp ui/test_memory_notice.cpp ui/test_update_notice.cpp ui/test_quick_bar.cpp ui/test_window_margins.cpp ui/test_panel_divider.cpp ui/test_button_tips.cpp ui/test_about.cpp ui/test_crash_report.cpp ui/test_toast.cpp ui/test_held_keys.cpp ui/test_quick_shapes.cpp ui/test_effects_ui.cpp ui/test_recovery.cpp
                                ui/test_resources_page.cpp ui/test_bucket_and_keys.cpp ui/test_tool_tips.cpp ui/test_canvas_display.cpp
-                               ui/ScreenshotSupport.h
+                               ui/ScreenshotSupport.h ui/CrashStack.h ui/CrashStack.cpp
                                ${CMAKE_SOURCE_DIR}/resources/doodlebold.qrc)  # icons and theme, as in the app
-target_link_libraries(doodlebold_ui_tests PRIVATE doodlebold_ui GTest::gtest)
+target_link_libraries(doodlebold_ui_tests PRIVATE doodlebold_ui GTest::gtest $<$<PLATFORM_ID:Windows>:dbghelp>)
 doodlebold_set_warnings(doodlebold_ui_tests)
 target_compile_definitions(doodlebold_ui_tests PRIVATE DOODLEBOLD_FIXTURE_DIR="${CMAKE_CURRENT_SOURCE_DIR}/fixtures")
 # Eight shards run side by side; each gets its own home so the tests that reset settings never meet.
