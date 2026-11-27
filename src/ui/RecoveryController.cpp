@@ -33,25 +33,27 @@ void RecoveryController::apply(const AppOptions::Values& values) {
         m_timer.stop();
         return;
     }
-    if (!m_store || m_store->root() != m_root) {
-        endRun();
+    if (!m_store || m_store->root() != m_root)
         startRun();
-    }
     // Restarted only when the interval changes: any other option leaves the countdown as it was.
     const int interval = values.recoveryMinutes * kMsPerMinute;
     if (!m_timer.isActive() || m_timer.interval() != interval)
         m_timer.start(interval);
 }
 
+// The running run, if any, ends only once the new one has opened: a folder that can't be made keeps the copies there are, and
+// where they are made. With the new run open, every canvas is copied into it at once rather than at the next tick.
 void RecoveryController::startRun() {
     auto store = std::make_shared<RecoveryStore>(m_root);
     if (!store->isOpen()) {
         qWarning().noquote() << "No recovery copies: their folder can't be made or locked:" << m_root;
         return;
     }
+    endRun();
     m_store = std::move(store);
     for (Canvas& canvas : m_canvases)
         canvas.changed = true;  // the new run has no copy of anything yet
+    saveCopies();
 }
 
 void RecoveryController::endRun() {

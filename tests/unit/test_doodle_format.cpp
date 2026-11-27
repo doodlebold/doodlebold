@@ -192,6 +192,19 @@ TEST(DoodleFormat, DocumentSurvivesSaveAndOpen) {
     EXPECT_GE(added.value().value(), doc.content().state.layers.nextIdValue());
 }
 
+// A layer keeps its pixels past the canvas edge, and Select Layer Region took those too: the file then didn't open.
+TEST(DoodleFormat, ASelectionFromALayerPastTheEdgeSavesAndOpens) {
+    Document doc(QSize(200, 100), Qt::white);
+    ASSERT_TRUE(doc.fillLayer(doc.currentLayerId(), Qt::red).ok());
+    ASSERT_TRUE(doc.moveLayerExactly(doc.currentLayerId(), transform::Turn::None, QPoint(-150, 0)).ok());
+    ASSERT_TRUE(doc.selectionFromLayer(doc.currentLayerId()).ok());
+    const auto reopened = parse(saved(doc.content()));
+    ASSERT_TRUE(reopened.ok());
+    const auto& selection = reopened.value().content.state.selection;
+    ASSERT_TRUE(selection);
+    EXPECT_EQ(selection->bounds(true), QRect(0, 0, 50, 100));
+}
+
 TEST(DoodleFormat, FileRoundTripAndSniffing) {
     QTemporaryDir dir;
     ASSERT_TRUE(dir.isValid());

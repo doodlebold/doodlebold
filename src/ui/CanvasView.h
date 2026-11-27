@@ -217,6 +217,7 @@ private:
     bool startMoveSession() override;
     void finishSession(bool commit) override;
     PressureRange pressureRange() const override { return m_pressureRange; }
+    bool isCurrentCanvas() const override { return isCurrentView(); }
 
     ToolHost& asHost() { return *this; }
     CanvasTool* activeTool() const;

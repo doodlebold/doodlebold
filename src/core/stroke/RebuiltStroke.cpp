@@ -771,6 +771,7 @@ QRect RebuiltStroke::begin(TiledImage* target, const QColor& color, const BrushS
         settings.edge = kEdgePresets - 1;
     waitUntilRetired();
     m_worker.reset();
+    m_shownBlocks.clear();  // the last stroke's lift and end show frames without their blocks being taken
     m_target = target;
     m_selection = selection;
     m_paint = paintFrom(color, settings.clamped(), preserveOpacity);
@@ -1050,11 +1051,13 @@ QRect RebuiltStroke::showNow() {
         return {};
     StrokeFrame frame = m_worker->takeFrame();
     m_shownFrameLevel = frame.level;
-    if (!frame.blocks.empty()) {
+    // Blocks are kept at one level only: they're taken as the last frame's, and one of another size overruns the compositor's.
+    if (frame.level != m_shownBlocksLevel) {
+        m_shownBlocks.clear();
         m_shownBlocksLevel = frame.level;
-        for (auto& [coord, block] : frame.blocks)
-            m_shownBlocks[coord] = std::move(block);
     }
+    for (auto& [coord, block] : frame.blocks)
+        m_shownBlocks[coord] = std::move(block);
     const QRect area = frame.area.intersected(m_target->paintArea());
     // The shown region is made once from all the tiles' rects: adding them one by one costs more with each.
     std::vector<QRect> shown;

@@ -13,6 +13,8 @@
 #include <QOpenGLContext>
 #include <QTimer>
 
+#include <memory>
+
 int main(int argc, char* argv[]) {
     // Every tablet event must reach the stroke.
     QCoreApplication::setAttribute(Qt::AA_CompressTabletEvents, false);
@@ -54,16 +56,19 @@ int main(int argc, char* argv[]) {
     // Format plugins join Open and Save before the window lists the formats.
     const auto plugins = doodlebold::io::loadFormatPlugins(doodlebold::FormatRegistry::instance());
 
-    doodlebold::MainWindow window;
-    window.show();
+    auto window = std::make_unique<doodlebold::MainWindow>();
+    window->show();
     if (!plugins.notes.isEmpty())
-        QTimer::singleShot(0, &window, [&window, notes = plugins.notes] {
-            QMessageBox::information(&window, QCoreApplication::translate("main", "Plugins"), notes.join(QStringLiteral("\n\n")));
+        QTimer::singleShot(0, window.get(), [w = window.get(), notes = plugins.notes] {
+            QMessageBox::information(w, QCoreApplication::translate("main", "Plugins"), notes.join(QStringLiteral("\n\n")));
         });
-    QTimer::singleShot(0, &window, [&window, crashed = doodlebold::crash_report::takeNewReport()] { window.showStartDialogs(crashed); });
-    window.openFiles(QApplication::arguments().mid(1));
-    window.checkForUpdatesAtStart();
+    QTimer::singleShot(0, window.get(),
+                       [w = window.get(), crashed = doodlebold::crash_report::takeNewReport()] { w->showStartDialogs(crashed); });
+    window->openFiles(QApplication::arguments().mid(1));
+    window->checkForUpdatesAtStart();
     const int status = QApplication::exec();
+    // Gone before the crash report is let go, so a crash as the window and its canvases are torn down is reported too.
+    window.reset();
     doodlebold::crash_report::uninstall();
     return status;
 }

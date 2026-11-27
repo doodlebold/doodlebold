@@ -75,7 +75,9 @@ void MarqueeTool::move(const ToolPointer& p) {
         m_current = p.pixel();
         m_dragged = m_dragged || m_current != m_anchor;
     } else if (m_state == State::Moving) {
-        host().session()->dragTo(p.doc, p.modifiers);
+        // The session can go under a drag (copy, cut, paste and the layer turns commit it first); the move then just ends.
+        if (TransformSession* s = host().session())
+            s->dragTo(p.doc, p.modifiers);
     }
     host().toolChanged();
 }
@@ -84,8 +86,10 @@ void MarqueeTool::release(const ToolPointer& p) {
     const State state = m_state;
     m_state = State::Idle;
     if (state == State::Moving) {
-        host().session()->endDrag();
-        host().finishSession(true);
+        if (TransformSession* s = host().session()) {
+            s->endDrag();
+            host().finishSession(true);
+        }
         return;
     }
     if (state != State::Selecting)
@@ -111,11 +115,14 @@ bool MarqueeTool::keyPress(QKeyEvent* e) {
 }
 
 void MarqueeTool::cancel() {
-    if (m_state == State::Moving) {
-        host().session()->endDrag();
+    // Idle before the session ends: ending it cancels the active tool, which is this one again.
+    const State state = m_state;
+    m_state = State::Idle;
+    if (state == State::Moving) {
+        if (TransformSession* s = host().session())
+            s->endDrag();
         host().finishSession(false);
     }
-    m_state = State::Idle;
     host().toolChanged();
 }
 

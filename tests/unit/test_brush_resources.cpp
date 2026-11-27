@@ -302,6 +302,27 @@ TEST(BrushResources, AFileOfABuiltInsNameTakesItsPlaceUntilItIsRemoved) {
     EXPECT_EQ(renumbered.value(), QStringLiteral("Blots 2")) << "the tool panel's import keeps both";
 }
 
+// The picture replaced is let go only once the new one is written, so a failed write keeps it; one of another format then goes.
+TEST(BrushResources, ReplacingAPictureOfAnotherFormatLeavesOnlyTheNewOne) {
+    QTemporaryDir dir, from;
+    {
+        BrushResourceLibrary first(dir.path());
+        ASSERT_TRUE(QDir().mkpath(first.kindFolder(ResourceKind::BlotMap)));
+        ASSERT_TRUE(grey(40).save(QDir(first.kindFolder(ResourceKind::BlotMap)).filePath(QStringLiteral("Mine.bmp"))));
+    }
+    BrushResourceLibrary lib(dir.path());
+    ASSERT_NE(lib.form(QStringLiteral("Mine")), nullptr);
+    const std::size_t before = lib.forms().size();
+    const QString file = from.filePath(QStringLiteral("Mine.png"));
+    ASSERT_TRUE(grey(90).save(file));
+    const auto replaced = lib.importImage(ResourceKind::BlotMap, file, BrushResourceLibrary::SameName::Replace);
+    ASSERT_TRUE(replaced.ok());
+    EXPECT_EQ(replaced.value(), QStringLiteral("Mine"));
+    EXPECT_EQ(lib.forms().size(), before);
+    EXPECT_EQ(qGray(lib.form(QStringLiteral("Mine"))->image.pixel(3, 3)), 90);
+    EXPECT_FALSE(QFile::exists(QDir(lib.kindFolder(ResourceKind::BlotMap)).filePath(QStringLiteral("Mine.bmp"))));
+}
+
 TEST(BrushResources, RenamingMovesTheFileAndRefusesATakenName) {
     QTemporaryDir dir;
     BrushResourceLibrary lib(dir.path());

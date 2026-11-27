@@ -854,6 +854,31 @@ TEST(Background, AnEraserGivesTheSamePixels) {
     expectTheSameInBackground(settings);
 }
 
+// The blocks a zoomed-out view shows come with the frames, and the lift's and end's frames are shown without taking them. Kept,
+// they came out with the next stroke's first frame as that frame's level: a level-1 block (32² pixels) put where a level-2 view
+// has room for 16², past the end of the compositor's buffer.
+TEST(Background, ANewStrokeShowsNoBlocksOfTheLastOne) {
+    TiledImage target(QSize(460, 120));
+    RebuiltStroke stroke;
+    stroke.paintInBackground({}, {});
+    for (const int level : {1, 2}) {
+        stroke.begin(&target, Qt::black, pencil(400), timed(30, 0.5, 0));
+        stroke.setViewLevel(level);
+        int shownLevel = -1;
+        EXPECT_TRUE(stroke.takeShownBlocks(shownLevel).empty()) << "at level " << level;
+        for (int i = 1; i <= 30; ++i) {
+            stroke.add(timed(30 + i * 12.0, 0.5, i * 8u));
+            if (i % 5 == 0) {  // shown as a canvas does (StrokeController::reportShown)
+                stroke.waitUntilCaughtUp();
+                (void)stroke.showNow();
+                (void)stroke.takeShownBlocks(shownLevel);
+            }
+        }
+        stroke.lift();
+        (void)stroke.end();
+    }
+}
+
 namespace {
 
 // A stroke shown after every pen event once its thread has caught up, so each event's stamps are merged in a frame of their own.
