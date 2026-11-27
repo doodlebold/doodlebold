@@ -711,6 +711,32 @@ TEST(TimelapseFile, ARecordingRoundTrips) {
     EXPECT_EQ(doc.recordingStartedMs(), loaded.value().content.timelapse->startedMs);
 }
 
+// Paused, a canvas resize (Trim, or a turn of a canvas that isn't square) stores no step of the new size: pause records nothing.
+// A recording whose last step isn't the canvas's size was then taken for another picture's and lost as the file opened. A paused
+// one is kept, and its first step on resuming holds the whole picture at the new size.
+TEST(TimelapseFile, ARecordingPausedAcrossACanvasResizeIsKept) {
+    Document doc(QSize(200, 150), Qt::white);
+    doc.startRecording();
+    paintLine(doc, 40);
+    doc.setRecordingPaused(true);
+    ASSERT_TRUE(doc.rotateCanvas(true));
+    const int steps = doc.recordedSteps();
+    const auto loaded = parse(saved(doc.content()));
+    ASSERT_TRUE(loaded.ok()) << qPrintable(loaded.error().describe());
+    EXPECT_TRUE(loaded.value().notes.isEmpty());
+    ASSERT_TRUE(loaded.value().content.timelapse);
+    EXPECT_EQ(loaded.value().content.timelapse->finalSize(), QSize(200, 150)) << "nothing was recorded while paused";
+
+    Document reopened(loaded.value().content);
+    ASSERT_TRUE(reopened.timelapse());
+    EXPECT_EQ(reopened.recordedSteps(), steps);
+    reopened.setRecordingPaused(false);
+    paintLine(reopened, 60, Qt::blue);
+    const auto recording = reopened.timelapse();
+    EXPECT_TRUE(recording->steps.back()->full);
+    EXPECT_EQ(recording->finalSize(), QSize(150, 200));
+}
+
 TEST(TimelapseFile, FramesOfStrokesRoundTrip) {
     Document doc(QSize(200, 150), Qt::white);
     doc.startRecording();

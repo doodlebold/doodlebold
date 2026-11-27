@@ -110,8 +110,10 @@ FileResult<Timelapse> read(QIODevice& device, const doodle_file::Chunk& header, 
             return R::failure(corrupt(QStringLiteral("(extra data in recorded step %1)").arg(i)));
         recording.steps.push_back(std::move(step));
     }
-    if (recording.finalSize() != canvas)
-        return Timelapse{};  // not of this picture (the file was put together by hand): left out, the picture still opens
+    // Not of this picture (the file was put together by hand): left out, the picture still opens. A paused recording can end at
+    // another size, as a resize while paused records nothing; its first step on resuming is the whole picture at the new size.
+    if (!recording.paused && recording.finalSize() != canvas)
+        return Timelapse{};
     return recording;
 }
 
