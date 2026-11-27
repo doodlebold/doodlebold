@@ -49,8 +49,10 @@ public:
     TransformSession* session() override { return nullptr; }
     bool startMoveSession() override { return false; }
     void finishSession(bool) override {}
+    bool isCurrentCanvas() const override { return current; }
 
     ToolBox tools;
+    bool current = true;
     int changes = 0;
     QStringList messages;
 
@@ -264,6 +266,31 @@ TEST(TextTool, ClickTypeAndEdit) {
     key(tool, Qt::Key_A, Qt::ControlModifier);
     EXPECT_EQ(tool.anchor(), 0);
     EXPECT_EQ(tool.caret(), 9);
+}
+
+// Every open canvas's Text tool hears the one ToolBox. Picking a colour or a style for another canvas, or clicking one of its text
+// layers (which shows that layer's style in the panel), restyled the text still selected here, as an undo step out of sight.
+TEST(TextTool, OnlyTheCurrentCanvasTakesTheToolBoxsChanges) {
+    Document doc(QSize(400, 300), Qt::white);
+    Host host(&doc);
+    TextTool tool(host);
+    tool.press(at({50, 60}));
+    tool.release(at({50, 60}));
+    const LayerId id = tool.editing();
+    type(tool, QStringLiteral("Hello"));
+    key(tool, Qt::Key_A, Qt::ControlModifier);
+    const int steps = doc.undoStack()->count();
+    host.current = false;
+    host.tools.setColor(Qt::red);
+    FixedToolOptions o = host.tools.fixedOptions();
+    o.text.bold = true;
+    o.text.vertical = true;
+    host.tools.setFixedOptions(o);
+    const TextContent& t = *doc.layer(id)->text;
+    EXPECT_EQ(t.styleAt(2).colour, QColor(Qt::black));
+    EXPECT_FALSE(t.styleAt(2).bold);
+    EXPECT_FALSE(t.vertical);
+    EXPECT_EQ(doc.undoStack()->count(), steps);
 }
 
 TEST(TextTool, ClickIntoAFrameEditsThatLayerAndOutsideStartsAnother) {

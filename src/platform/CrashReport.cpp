@@ -316,7 +316,8 @@ void writeOut(Text& t) {
     t.clear();
 }
 
-void writeReport(const char* what, const void* address) {
+// The fault's address comes from `fault`, as a null pointer's 0 is itself the address of the commonest crash.
+void writeReport(const char* what, const siginfo_t* fault) {
     if (g_fd < 0 || writing().exchange(true))
         return;
     Text& t = report();
@@ -327,9 +328,9 @@ void writeReport(const char* what, const void* address) {
     t.addDecimal(static_cast<std::uint64_t>(now.tv_sec - g_started.tv_sec));
     t.add(" s\nCrash: ");
     t.add(what);
-    if (address) {
+    if (fault) {
         t.add(", at 0x");
-        t.addHex(reinterpret_cast<std::uintptr_t>(address));
+        t.addHex(reinterpret_cast<std::uintptr_t>(fault->si_addr));
     }
     t.add("\n");
     writeOut(t);
@@ -343,7 +344,7 @@ void writeReport(const char* what, const void* address) {
 
 void onSignal(int signal, siginfo_t* info, void*) {
     const bool hasAddress = signal == SIGSEGV || signal == SIGBUS;
-    writeReport(nameOf(signal), hasAddress ? info->si_addr : nullptr);
+    writeReport(nameOf(signal), hasAddress ? info : nullptr);
     std::signal(signal, SIG_DFL);
     std::raise(signal);
 }

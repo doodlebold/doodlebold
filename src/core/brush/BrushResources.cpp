@@ -284,9 +284,8 @@ Result<QString, ResourceError> BrushResourceLibrary::importImage(ResourceKind ki
         image = image.scaled(kMaxImportSide, kMaxImportSide, Qt::KeepAspectRatio, Qt::SmoothTransformation);
     const QString base = safeName(QFileInfo(path).completeBaseName());
     const bool replace = sameName == SameName::Replace && !isReserved(base);
-    if (replace)
-        if (const BrushResource* old = findUser(kind, base); old && !QFile::remove(old->file))
-            return Result<QString, ResourceError>::failure(ResourceError::WriteFailed);
+    const BrushResource* old = replace ? findUser(kind, base) : nullptr;
+    const QString replacedFile = old ? old->file : QString();
     const QString name = replace ? base : uniqueName(kind, base);
     // A brush shape's settings file comes with it.
     const QString settingsFile = QFileInfo(path).dir().filePath(QFileInfo(path).completeBaseName() + QStringLiteral(".ini"));
@@ -298,6 +297,15 @@ Result<QString, ResourceError> BrushResourceLibrary::importImage(ResourceKind ki
     }
     if (!add({{kind, name, toGreyscale(image)}}).ok())
         return Result<QString, ResourceError>::failure(ResourceError::WriteFailed);
+    // The picture replaced goes only now the new one is written, so a failed write keeps it. A PNG of the same name was written over.
+    const QString written = QDir(kindFolder(kind)).filePath(name + QStringLiteral(".png"));
+    if (!replacedFile.isEmpty() && QFileInfo(replacedFile) != QFileInfo(written)) {
+        const bool removed = QFile::remove(replacedFile);
+        reload();
+        emit changed();
+        if (!removed)
+            return Result<QString, ResourceError>::failure(ResourceError::WriteFailed);
+    }
     return name;
 }
 

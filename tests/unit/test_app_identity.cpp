@@ -24,7 +24,14 @@ TEST(AppIdentity, IsNotTheInstalledProgramsAndEverySettingUsesIt) {
     EXPECT_STRNE(app_identity::kOrganization, "Doodlebold");
     EXPECT_EQ(app_identity::settings().organizationName(), QStringLiteral("DoodleboldPaint"));
     EXPECT_EQ(AppOptions::settings().organizationName(), QStringLiteral("DoodleboldPaint"));
-    EXPECT_TRUE(QDir::fromNativeSeparators(AppOptions::settings().fileName()).endsWith(QStringLiteral("/DoodleboldPaint/Doodlebold.conf")));
+#ifdef Q_OS_WIN
+    // Windows keeps the settings in the registry, which the file name names.
+    const QString settingsAt = QStringLiteral("/Software/DoodleboldPaint/Doodlebold");
+#else
+    const QString settingsAt = QStringLiteral("/DoodleboldPaint/Doodlebold.conf");
+#endif
+    EXPECT_TRUE(QDir::fromNativeSeparators(AppOptions::settings().fileName()).endsWith(settingsAt))
+        << AppOptions::settings().fileName().toStdString();
 }
 
 TEST(AppIdentity, ThePathsOfTheFilesFollowIt) {

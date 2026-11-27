@@ -162,11 +162,12 @@ Result<int, QString> VideoFrames::extract(const FfmpegTools& tools, const VideoP
             if (line.startsWith("frame="))
                 done = line.mid(6).toInt();
         }
-        if ((progress && !progress(std::min(done, total), total)) || clock.elapsed() > kExtractTimeoutMs) {
+        const bool cancelled = progress && !progress(std::min(done, total), total);
+        if (cancelled || clock.elapsed() > kExtractTimeoutMs) {
             process.kill();
             process.waitForFinished(2000);
             QDir(dir).removeRecursively();
-            return R::failure(QString());
+            return R::failure(cancelled ? QString() : tr("Reading it took too long."));
         }
     }
     if (process.exitStatus() != QProcess::NormalExit || process.exitCode() != 0) {
